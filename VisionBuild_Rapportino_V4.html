@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vision Build — Rapportino Cantiere</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  window._msalReady = (async () => {
+    try { await loadScript('msal-browser.min.js'); return; } catch(e) {}
+    try { await loadScript('https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js'); return; } catch(e) {}
+    await loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js');
+  })();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0c0c0c; --surface: #161616; --surface2: #1e1e1e;
+      --border: #2a2a2a; --accent: #c8a96e; --accent-dim: rgba(200,169,110,0.12);
+      --success: #4caf7d; --error: #ef5350; --warning: #ffa726;
+      --text: #f0f0f0; --text-muted: #777;
+    }
+    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; padding-bottom:40px; }
+
+    .header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .logo-wrap { width:52px; height:52px; background:#000; border-radius:10px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .logo-wrap svg { width:48px; height:48px; }
+    .header-right { display:flex; align-items:center; gap:10px; }
+    .status-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 9px; border-radius:20px; background:var(--surface2); color:var(--text-muted); border:1px solid var(--border); }
+    .status-badge.online { color:var(--success); border-color:rgba(76,175,125,0.4); }
+    .status-badge.error  { color:var(--error);   border-color:rgba(239,83,80,0.4); }
+    .status-badge .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .btn-home { font-size:11px; padding:4px 10px; border-radius:20px; background:var(--surface2); border:1px solid var(--border); color:var(--text-muted); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-family:inherit; transition: border-color .2s, color .2s; }
+    .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+
+    .page-header { display:flex; align-items:center; justify-content:space-between; max-width:680px; margin:0 auto; padding:20px 16px 0; }
+    .page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; color:var(--text); }
+    .btn-back { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-family:inherit; transition:all .2s; }
+    .btn-back:hover { background:var(--surface2); border-color:var(--accent); }
+
+    .container { max-width:680px; margin:0 auto; padding:20px 16px; }
+    .section { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:14px; }
+    .section-title { font-family:'Syne',sans-serif; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--accent); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    .field { margin-bottom:14px; }
+    .field:last-child { margin-bottom:0; }
+    .field-row   { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+
+    label { display:block; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+
+    input[type=text],input[type=number],input[type=date],select,textarea {
+      width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:9px;
+      color:var(--text); padding:10px 13px; font-family:'DM Sans',sans-serif; font-size:14px;
+      outline:none; transition:border-color .2s,box-shadow .2s; -webkit-appearance:none;
+    }
+    input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+    input[readonly],select[disabled] { opacity:.55; cursor:default; }
+    select option { background:#1e1e1e; color:var(--text); }
+    textarea { resize:vertical; min-height:80px; line-height:1.5; }
+
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    .info-chip { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; min-height:44px; }
+    .info-chip .ic-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+    .info-chip .ic-value { font-size:13px; font-weight:600; color:var(--text); word-break:break-word; }
+
+    .avanz-wrap { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px; }
+    .avanz-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .avanz-title { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; }
+    .avanz-pct { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; color:var(--accent); }
+    .progress-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-bottom:8px; }
+    .progress-fill { height:100%; border-radius:4px; transition:width .5s ease; }
+    .avanz-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); }
+    .avanz-warning { color:var(--warning); font-weight:600; }
+    .avanz-danger  { color:var(--error);   font-weight:600; }
+
+    .pill-group { display:flex; flex-wrap:wrap; gap:8px; }
+    .pill { padding:8px 16px; border-radius:22px; border:1px solid var(--border); background:var(--surface2); color:var(--text-muted); cursor:pointer; font-size:13px; transition:all .2s; user-select:none; }
+    .pill.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:600; }
+
+    .toggle-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .toggle-item { display:flex; align-items:center; justify-content:space-between; background:var(--surface2); border:1px solid var(--border); border-radius:9px; padding:10px 12px; cursor:pointer; transition:all .2s; user-select:none; }
+    .toggle-item.on { background:var(--accent-dim); border-color:var(--accent); }
+    .toggle-item.fixed-item { border-color:rgba(200,169,110,0.3); }
+    .toggle-item .t-name { font-size:12px; flex:1; padding-right:8px; }
+    .toggle-item .t-badge { font-size:9px; color:var(--accent); margin-right:6px; opacity:.7; }
+    .toggle-switch { width:28px; height:16px; background:var(--border); border-radius:8px; position:relative; transition:background .2s; flex-shrink:0; }
+    .toggle-switch::after { content:''; position:absolute; width:10px; height:10px; background:var(--text-muted); border-radius:50%; top:3px; left:3px; transition:all .2s; }
+    .toggle-item.on .toggle-switch { background:var(--accent); }
+    .toggle-item.on .toggle-switch::after { left:15px; background:#000; }
+
+    .add-manual-row { display:flex; gap:8px; margin-top:10px; }
+    .add-manual-row input { flex:1; }
+    .btn-plus { background:var(--surface2); border:1px solid var(--border); color:var(--accent); padding:10px 16px; border-radius:9px; cursor:pointer; font-size:20px; line-height:1; transition:all .2s; }
+    .btn-plus:hover { border-color:var(--accent); background:var(--accent-dim); }
+
+    /* ── DITTE ── */
+    .ditte-list { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+    .ditta-item { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px; }
+    .ditta-item-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .ditta-item-header select { flex:1; background:var(--surface); border-color:var(--border); font-size:13px; }
+    .btn-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:0 2px; transition:color .2s; }
+    .btn-remove:hover { color:var(--error); }
+    .ditta-ore-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:8px; }
+    .ditta-ore-row input { font-size:13px; }
+    .ore-totale-box { background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:10px 13px; display:flex; align-items:center; justify-content:space-between; }
+    .ore-totale-box .ot-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; }
+    .ore-totale-box .ot-value { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; color:var(--accent); }
+    .ditta-item textarea { min-height:60px; font-size:13px; margin:0; }
+    .btn-add-ditta { width:100%; background:transparent; border:1px dashed var(--border); border-radius:10px; color:var(--accent); padding:11px; cursor:pointer; font-size:13px; font-family:'DM Sans',sans-serif; font-weight:600; transition:all .2s; }
+    .btn-add-ditta:hover { border-color:var(--accent); background:var(--accent-dim); }
+    .ore-totale-giornata { background:var(--accent-dim); border:1px solid var(--accent); border-radius:10px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+    .ore-totale-giornata .otg-label { font-size:12px; color:var(--accent); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+    .ore-totale-giornata .otg-value { font-family:'Syne',sans-serif; font-weight:800; font-size:20px; color:var(--accent); }
+
+    /* ── BUTTONS ── */
+    .btn-primary { width:100%; background:var(--accent); color:#000; border:none; border-radius:11px; padding:16px; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; transition:opacity .2s; }
+    .btn-primary:hover { opacity:.9; }
+    .btn-primary:disabled { opacity:.35; cursor:not-allowed; }
+    .btn-secondary { width:100%; background:transparent; color:var(--text); border:1px solid var(--border); border-radius:11px; padding:13px; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px; cursor:pointer; transition:all .2s; margin-top:8px; }
+    .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+
+    .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:13px 22px; font-size:13px; font-weight:500; transition:transform .28s cubic-bezier(.34,1.56,.64,1); z-index:999; white-space:nowrap; pointer-events:none; }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+    .toast.success { border-color:var(--success); color:var(--success); }
+    .toast.error   { border-color:var(--error);   color:var(--error); }
+    .toast.warning { border-color:var(--warning); color:var(--warning); }
+
+    .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin-right:6px; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .err-box { background:rgba(239,83,80,0.08); border:1px solid rgba(239,83,80,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--error); margin-bottom:14px; white-space:pre-line; }
+    .debug-panel { background:rgba(200,169,110,0.06); border:1px dashed rgba(200,169,110,0.3); border-radius:8px; padding:10px 14px; margin-top:10px; font-size:11px; }
+    .debug-panel summary { cursor:pointer; color:var(--accent); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+    .debug-table { width:100%; border-collapse:collapse; margin-top:8px; }
+    .debug-table td { padding:3px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+    .debug-table td:first-child { color:var(--accent); font-weight:600; width:35%; }
+    .debug-table td:last-child { color:var(--text); word-break:break-all; }
+
+    @media (max-width:480px) {
+      .toggle-grid,.field-row,.field-row-3,.info-grid,.ditta-ore-row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="header">
+  <div class="logo-wrap">
+    <svg viewBox="0 0 520 480" xmlns="http://www.w3.org/2000/svg">
+      <!-- Arco C (apertura a destra) — centro ≈ (148,240) r≈185 -->
+      <path d="M 279 107 A 185 185 0 1 0 279 373" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M 273 111 A 181 181 0 1 0 273 369" fill="none" stroke="white" stroke-width="2"   stroke-linecap="round" opacity="0.4"/>
+      <path d="M 285 103 A 189 189 0 1 0 285 377" fill="none" stroke="white" stroke-width="2"   stroke-linecap="round" opacity="0.25"/>
+      <!-- Triangolo ▼ = V di VISION -->
+      <polygon points="100,162 188,162 144,228" fill="white"/>
+      <!-- ISION -->
+      <text x="198" y="222" font-family="Georgia,'Times New Roman',serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">ISION</text>
+      <!-- BUILD -->
+      <text x="100" y="318" font-family="Georgia,'Times New Roman',serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">BUILD</text>
+    </svg>
+  </div>
+  <div class="header-right">
+    <button class="btn-home" onclick="tornaHome()">← Torna a Home</button>
+    <span id="status-badge" class="status-badge">
+      <span class="dot"></span>
+      <span id="status-text">caricamento...</span>
+    </span>
+  </div>
+</div>
+
+<div class="page-header">
+  <div class="page-title">Rapportino Cantiere</div>
+  <button class="btn-back" onclick="tornaHome()">← Torna a Home</button>
+</div>
+
+<div class="container">
+  <div id="err-box" class="err-box" style="display:none"></div>
+
+  <!-- SEZIONE 1: CANTIERE -->
+  <div class="section">
+    <div class="section-title">🏛️ Cantiere</div>
+    <div class="field">
+      <label>Seleziona Cantiere</label>
+      <select id="cantiere" onchange="onCantierChange()">
+        <option value="">— Seleziona cantiere —</option>
+      </select>
+    </div>
+    <div id="cantiere-details" style="display:none;margin-top:12px">
+      <div class="info-grid">
+        <div class="info-chip">
+          <div class="ic-label">Codice Cantiere</div>
+          <div class="ic-value" id="info-codice">—</div>
+        </div>
+        <div class="info-chip">
+          <div class="ic-label">Tipo Cantiere</div>
+          <div class="ic-value" id="info-tipo">—</div>
+        </div>
+        <div class="info-chip" style="grid-column:1/-1">
+          <div class="ic-label">Cliente / Committente</div>
+          <div class="ic-value" id="info-cliente">—</div>
+        </div>
+        <div class="info-chip" style="grid-column:1/-1">
+          <div class="ic-label">Indirizzo Cantiere</div>
+          <div class="ic-value" id="info-indirizzo">—</div>
+        </div>
+        <div class="info-chip" id="chip-cig" style="display:none">
+          <div class="ic-label">CIG</div>
+          <div class="ic-value" id="info-cig">—</div>
+        </div>
+        <div class="info-chip" id="chip-cup" style="display:none">
+          <div class="ic-label">CUP</div>
+          <div class="ic-value" id="info-cup">—</div>
+        </div>
+        <div class="info-chip">
+          <div class="ic-label">Inizio Lavori</div>
+          <div class="ic-value" id="info-inizio">—</div>
+        </div>
+        <div class="info-chip">
+          <div class="ic-label">Fine Contrattuale</div>
+          <div class="ic-value" id="info-fine">—</div>
+        </div>
+        <div class="info-chip" style="grid-column:1/-1">
+          <div class="ic-label">Direttore Lavori</div>
+          <div class="ic-value" id="info-dl">—</div>
+        </div>
+        <div class="info-chip" style="grid-column:1/-1">
+          <div class="ic-label">CSE / CSP</div>
+          <div class="ic-value" id="info-cse">—</div>
+        </div>
+      </div>
+      <!-- Pannello debug temporaneo per verificare il mapping dei campi -->
+      <details class="debug-panel" id="debug-panel">
+        <summary>🔧 Debug campi SharePoint (temporaneo)</summary>
+        <table class="debug-table" id="debug-table"></table>
+      </details>
+    </div>
+  </div>
+
+  <!-- SEZIONE 2: RAPPORTINO -->
+  <div class="section">
+    <div class="section-title">📋 Rapportino</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Data</label>
+        <input type="date" id="data-rapportino">
+      </div>
+      <div class="field">
+        <label>Compilato da</label>
+        <select id="compilato-da">
+          <option value="">— Seleziona —</option>
+          <option value="Matteo Virili">Matteo Virili</option>
+          <option value="Salvatore Schembari">Salvatore Schembari</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEZIONE 3: AVANZAMENTO -->
+  <div class="section">
+    <div class="section-title">⏱️ Avanzamento Tempi Contrattuali</div>
+    <div class="avanz-wrap">
+      <div class="avanz-header">
+        <div class="avanz-title">Tempo utilizzato</div>
+        <div class="avanz-pct" id="avanz-pct">—</div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="avanz-meta">
+        <span id="avanz-giorni-trascorsi">Seleziona cantiere per calcolare</span>
+        <span id="avanz-giorni-rimanenti"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEZIONE 4: METEO -->
+  <div class="section">
+    <div class="section-title">🌤️ Meteo</div>
+    <div class="field">
+      <div class="pill-group">
+        <div class="pill" onclick="selectMeteo(this)" data-value="Sereno">☀️ Sereno</div>
+        <div class="pill" onclick="selectMeteo(this)" data-value="Nuvoloso">⛅ Nuvoloso</div>
+        <div class="pill" onclick="selectMeteo(this)" data-value="Pioggia">🌧️ Pioggia</div>
+        <div class="pill" onclick="selectMeteo(this)" data-value="Neve">❄️ Neve</div>
+        <div class="pill" onclick="selectMeteo(this)" data-value="Vento">💨 Vento</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Temperatura (°C)</label>
+      <input type="number" id="temperatura" placeholder="es. 22" min="-20" max="50">
+    </div>
+  </div>
+
+  <!-- SEZIONE 5: ATTREZZATURE -->
+  <div class="section">
+    <div class="section-title">🏗️ Attrezzature</div>
+    <div class="toggle-grid" id="attrezzature-grid">
+      <div class="toggle-item fixed-item" data-nome="Gru" onclick="this.classList.toggle('on')">
+        <span class="t-name">Gru</span>
+        <span class="t-badge">FISSO</span>
+        <div class="toggle-switch"></div>
+      </div>
+      <div class="toggle-item fixed-item" data-nome="Ponteggio" onclick="this.classList.toggle('on')">
+        <span class="t-name">Ponteggio</span>
+        <span class="t-badge">FISSO</span>
+        <div class="toggle-switch"></div>
+      </div>
+    </div>
+    <div class="add-manual-row">
+      <input type="text" id="new-attrez" placeholder="Aggiungi attrezzatura...">
+      <button class="btn-plus" onclick="addManualAttrez()">+</button>
+    </div>
+  </div>
+
+  <!-- SEZIONE 6: DITTE PRESENTI -->
+  <div class="section">
+    <div class="section-title">👷 Ditte Presenti</div>
+    <div class="ditte-list" id="ditte-list"></div>
+    <button class="btn-add-ditta" onclick="addDitta()">+ Aggiungi Ditta</button>
+    <div class="ore-totale-giornata" id="ore-totale-giornata" style="display:none">
+      <span class="otg-label">Ore Totali Giornata</span>
+      <span class="otg-value" id="ore-totale-val">0h</span>
+    </div>
+  </div>
+
+  <!-- SEZIONE 6b: LAVORAZIONI ED ATTIVITÀ SVOLTE -->
+  <div class="section">
+    <div class="section-title">🛠️ Lavorazioni ed Attività Svolte</div>
+    <div class="field">
+      <label>Lavorazioni del Giorno</label>
+      <textarea id="lavorazioni" placeholder="Descrizione generale delle lavorazioni svolte oggi (valida per tutte le ditte)..."></textarea>
+    </div>
+  </div>
+
+  <!-- SEZIONE 7: NOTE -->
+  <div class="section">
+    <div class="section-title">⚠️ Note & Conformità</div>
+    <div class="field">
+      <label>Non Conformità</label>
+      <textarea id="non-conformita" placeholder="Segnala eventuali non conformità..."></textarea>
+    </div>
+    <div class="field">
+      <label>Note Generali</label>
+      <textarea id="note-generali" placeholder="Annotazioni aggiuntive..."></textarea>
+    </div>
+  </div>
+
+  <div>
+    <button class="btn-primary" id="btn-salva" onclick="salvaRapportino()">💾 Salva Rapportino</button>
+    <button class="btn-secondary" onclick="anteprimaPDF()">👁️ Anteprima PDF</button>
+    <button class="btn-secondary" onclick="salvaBozza()">🔖 Salva Bozza Locale</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<template id="ditta-tpl">
+  <div class="ditta-item">
+    <div class="ditta-item-header">
+      <select class="d-select"><option value="">— Seleziona ditta —</option></select>
+      <button class="btn-remove" onclick="this.closest('.ditta-item').remove(); aggiornaOreTotali()">✕</button>
+    </div>
+    <div class="ditta-ore-row">
+      <div>
+        <label>N° Operai</label>
+        <input type="number" class="d-operai" placeholder="es. 4" min="1" max="99" oninput="aggiornaOreDitta(this)">
+      </div>
+      <div>
+        <label>Ore lavorate</label>
+        <input type="number" class="d-ore" placeholder="es. 8" min="0.5" max="24" step="0.5" oninput="aggiornaOreDitta(this)">
+      </div>
+      <div>
+        <div class="ore-totale-box">
+          <span class="ot-label">Totale</span>
+          <span class="ot-value d-totale">—</span>
+        </div>
+      </div>
+    </div>
+    <textarea class="d-lav" placeholder="Lavorazioni svolte da questa ditta..."></textarea>
+  </div>
+</template>
+
+<script>
+function tornaHome() {
+  if (window.history.length > 1) { window.history.back(); }
+  else { window.close(); }
+}
+// ════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════════════════
+const CFG = {
+  clientId:     '28d34213-6034-4b0a-b5cc-8201a925a0f9',
+  tenantId:     '8f61e0b7-e348-430b-8c32-203f296d368d',
+  siteHostname: 'visionbuildsrls.sharepoint.com',
+  sitePath:     '/sites/RapportiniCantieri'
+};
+const LISTS = {
+  cantieri:     '01_ANAGRAFICA_CANTIERI',
+  contatti:     '02_ANAGRAFICA_CONTATTI',
+  attrezzature: '03_ANAGRAFICA_ATTREZZATURE',
+  rapportini:   '04_Rapportini',
+  assegnazioni: '05_ASSEGNAZIONI_CANTIERI'
+};
+const SCOPES = ['Sites.ReadWrite.All', 'Files.ReadWrite.All', 'User.Read'];
+
+let msalApp       = null;
+let account       = null;
+let siteId        = null;
+let driveId       = null;
+let contattiCache    = [];
+let cantieriCache    = [];
+let assegnazioniCache = []; // { cantiere: string, ditta: string }[]
+// Restituisce l'elenco contatti filtrato per le ditte assegnate al cantiere
+// attualmente selezionato nel form. Ricalcolato ad ogni chiamata (non da cache)
+// per evitare che una loadAssegnazioni() ancora in corso (rete lenta/mobile)
+// faccia mostrare l'intera anagrafica invece delle sole ditte assegnate.
+function getDitteFiltratePerCantiereCorrente() {
+  const selCantiere = document.getElementById('cantiere');
+  const opt = selCantiere?.options[selCantiere.selectedIndex];
+  const idx = opt?.dataset.idx;
+  const c = idx !== undefined ? cantieriCache[parseInt(idx)] : null;
+
+  if (!c || assegnazioniCache.length === 0) return contattiCache;
+
+  const codiceC = (c.codice || '').toLowerCase();
+  const nomeC   = (c.nome   || '').toLowerCase();
+  const assegnate = assegnazioniCache
+    .filter(a => {
+      const ac = a.cantiere.toLowerCase();
+      return ac.includes(codiceC) || ac.includes(nomeC);
+    })
+    .map(a => a.ditta.toLowerCase());
+
+  return assegnate.length > 0
+    ? contattiCache.filter(ct => assegnate.includes(ct.nome.toLowerCase()))
+    : contattiCache;
+}
+
+const G = 'https://graph.microsoft.com/v1.0';
+
+// ════════════════════════════════════════════════════════════════════════════
+// MSAL + GRAPH HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+async function initMsal() {
+  msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId:    CFG.clientId,
+      authority:   `https://login.microsoftonline.com/${CFG.tenantId}`,
+      redirectUri: window.location.href.split('?')[0].split('#')[0]
+    },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+  });
+  await msalApp.initialize();
+}
+
+async function getToken() {
+  const req = { account, scopes: SCOPES };
+  try   { return (await msalApp.acquireTokenSilent(req)).accessToken; }
+  catch { return (await msalApp.acquireTokenRedirect(req)); }
+}
+
+async function gGet(url) {
+  const tk = await getToken();
+  const r  = await fetch(url, { headers: { Authorization: `Bearer ${tk}`, Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function gPost(url, body) {
+  const tk = await getToken();
+  const r  = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function gPut(url, blob) {
+  const tk = await getToken();
+  const r  = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tk}`, 'Content-Type': blob.type },
+    body: blob
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
+window.onload = async () => {
+  document.getElementById('data-rapportino').value = new Date().toISOString().split('T')[0];
+
+  try { await window._msalReady; }
+  catch(e) { showErrBox('Libreria MSAL non caricabile. Verifica connessione.'); setBadge('error','errore'); return; }
+
+  try { await initMsal(); }
+  catch(e) { showErrBox('Errore init MSAL: ' + e.message); setBadge('error','errore'); return; }
+
+  let redirectResult = null;
+  try { redirectResult = await msalApp.handleRedirectPromise(); } catch(e) {}
+  if (redirectResult) account = redirectResult.account;
+
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length > 0) {
+    account = accounts[0];
+    await loadAllData();
+  } else {
+    setBadge('', 'accesso in corso...');
+    await msalApp.loginRedirect({ scopes: SCOPES });
+  }
+
+  loadDraft();
+};
+
+async function loadAllData() {
+  setBadge('', 'caricamento...');
+  try {
+    const site = await gGet(`${G}/sites/${CFG.siteHostname}:${CFG.sitePath}`);
+    siteId = site.id;
+    const drive = await gGet(`${G}/sites/${siteId}/drive`);
+    driveId = drive.id;
+  } catch(e) {
+    showErrBox('Errore accesso sito: ' + e.message);
+    setBadge('error', 'errore'); return;
+  }
+
+  const errors = [];
+  try { await loadCantieri(); }     catch(e) { errors.push(`Cantieri: ${e.message}`); }
+  try { await loadContatti(); }     catch(e) { errors.push(`Contatti: ${e.message}`); }
+  try { await loadAssegnazioni(); } catch(e) { console.warn('Assegnazioni non caricate:', e.message); }
+
+  if (errors.length) { showErrBox('Errori caricamento:\n' + errors.join('\n')); setBadge('error','errore'); }
+  else               { hideErrBox(); setBadge('online','connesso'); }
+}
+
+function setBadge(cls, txt) {
+  document.getElementById('status-badge').className = `status-badge ${cls}`;
+  document.getElementById('status-text').textContent = txt;
+}
+function showErrBox(msg) { const b=document.getElementById('err-box'); b.style.display='block'; b.textContent=msg; }
+function hideErrBox()    { document.getElementById('err-box').style.display='none'; }
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOAD LISTS
+// ════════════════════════════════════════════════════════════════════════════
+function readField(item, ...names) {
+  for (const n of names) {
+    if (item[n] !== undefined && item[n] !== null && item[n] !== '') return item[n];
+  }
+  return '';
+}
+
+// Carica tutti gli elementi di una lista gestendo la paginazione automatica
+async function getAllListItems(url) {
+  let items = [];
+  let nextUrl = url;
+  while (nextUrl) {
+    const data = await gGet(nextUrl);
+    items = items.concat(data.value || []);
+    nextUrl = data['@odata.nextLink'] || null;
+  }
+  return items;
+}
+
+// Mappa colonne SharePoint: internalName → displayName  e  displayName.lower() → internalName
+let cantColMap    = {}; // internalName → displayName
+let cantColRevMap = {}; // displayName.toLowerCase() → internalName
+
+async function loadCantieri() {
+  // 1. Fetch definizioni colonne → costruiamo la mappa per cercare per nome display
+  try {
+    const colData = await gGet(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.cantieri)}/columns?$select=name,displayName&$top=80`);
+    cantColMap = {}; cantColRevMap = {};
+    (colData.value || []).forEach(c => {
+      cantColMap[c.name] = c.displayName;
+      cantColRevMap[c.displayName.toLowerCase()] = c.name;
+    });
+    console.log('CANTIERI — colonne disponibili:', cantColRevMap);
+  } catch(e) { console.warn('Fetch colonne cantieri fallito:', e.message); }
+
+  const items = await getAllListItems(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.cantieri)}/items?expand=fields&$top=500`);
+  const data = { value: items };
+  cantieriCache = [];
+  const sel = document.getElementById('cantiere');
+  sel.innerHTML = '<option value="">— Seleziona cantiere —</option>';
+
+  if (data.value && data.value[0]) {
+    console.log('CANTIERI — primo item RAW:', JSON.stringify(data.value[0].fields));
+  }
+
+  (data.value || []).forEach(item => {
+    const f = item.fields || item;
+    const rawFields = {};
+    Object.keys(f).filter(k => !k.startsWith('@') && k !== 'id').forEach(k => { rawFields[k] = f[k]; });
+
+    // Cerca per nome display usando la mappa, fallback a field_N classici
+    const byDisplay = (...displayNames) => {
+      for (const dn of displayNames) {
+        const iName = cantColRevMap[dn.toLowerCase()];
+        if (iName && f[iName] !== undefined && f[iName] !== null && f[iName] !== '') return f[iName];
+      }
+      return '';
+    };
+
+    // field_1 = Nome Cantiere, field_2 = Codice Cantiere (confermato da debug)
+    // NON usare byDisplay per questi: SharePoint mappa "Nome Cantiere" su Title che contiene il N. di riga
+    const nome         = readField(f,'field_1');
+    const codice       = readField(f,'field_2');
+    const cliente      = byDisplay('Cliente','Cliente/Committente','Committente');
+    const indirizzo    = byDisplay('Indirizzo Cantiere','Indirizzo');
+    const cig          = byDisplay('CIG');
+    const cup          = byDisplay('CUP');
+    const inizio          = byDisplay('Data Consegna Lavori','Data accettazione lavori');
+    const fine            = byDisplay('Data Fine Lavori Contrattuale','Data Fine Lavori Aggiornata','Data Fine Lavori');
+    const tipoCantiere    = byDisplay('Tipo Cantiere');
+    const direttoreLavori = byDisplay('Direttore Lavori','DirettoreLavori','DL');
+    const cse             = byDisplay('CSE/CSP','CSE','CSP');
+    const statusCantiere  = byDisplay('Status Cantiere','Status','StatusCantiere') || readField(f,'field_19');
+
+    cantieriCache.push({ spId: String(item.id || f.id || ''), nome, codice, cliente, indirizzo, cig, cup, inizio, fine, tipoCantiere, direttoreLavori, cse, statusCantiere, rawFields });
+
+    // Mostra nel menu solo cantieri con status "Attivo"
+    const isAttivo = (statusCantiere || '').toLowerCase().includes('attiv');
+    if (!isAttivo) return;
+
+    const opt = document.createElement('option');
+    opt.value = nome; opt.dataset.idx = cantieriCache.length - 1;
+    opt.textContent = codice ? `${codice} — ${nome}` : (nome || `Cantiere ${item.id}`);
+    sel.appendChild(opt);
+  });
+}
+
+async function loadContatti() {
+  const items = await getAllListItems(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.contatti)}/items?expand=fields&$top=500`);
+  const data = { value: items };
+
+  contattiCache = (data.value || []).map(item => {
+    const f = item.fields || item;
+    return {
+      spId:  String(item.id || f.id || ''),
+      nome:  readField(f,'field_1','Title','RagioneSociale','Nome','Denominazione'),
+      ruolo: readField(f,'field_3','field_2','Ruolo','TipoContatto','Tipologia')
+    };
+  });
+}
+
+
+async function loadAssegnazioni() {
+  try {
+    // 1. Leggi definizioni colonne per trovare i nomi interni
+    const colData = await gGet(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.assegnazioni)}/columns?$select=name,displayName&$top=50`);
+    const colRevMap = {};
+    (colData.value || []).forEach(c => { colRevMap[c.displayName.toLowerCase()] = c.name; });
+    console.log('Assegnazioni colonne:', JSON.stringify(colRevMap));
+
+    // Trova colonna cantiere e colonna ditte (cerca per parole chiave)
+    const cantiereCol = colRevMap['cantiere'] || 'Cantiere';
+    const dittaKey    = Object.keys(colRevMap).find(k => k.includes('ditt') || k.includes('operant')) || 'ditte operanti in cantiere';
+    const dittaCol    = colRevMap[dittaKey] || 'DitteOperantiInCantiere';
+    console.log('Assegnazioni: cantiereCol=', cantiereCol, '| dittaCol=', dittaCol);
+
+    // 2. Carica items
+    const items = await getAllListItems(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.assegnazioni)}/items?expand=fields&$top=1000`);
+    console.log('Assegnazioni items count:', items.length);
+    if (items.length > 0) console.log('Assegnazioni primo item fields:', JSON.stringify(items[0].fields));
+
+    // Debug: verifica spId nelle cache
+    console.log('cantieriCache[0]:', JSON.stringify(cantieriCache[0]?.spId), '| contattiCache[0]:', JSON.stringify(contattiCache[0]?.spId));
+
+    // Le colonne lookup restituiscono solo l'ID: es. Cantiere0LookupId, DitteoperantiincantiereLookupId
+    const cantiereIdCol = cantiereCol + 'LookupId';
+    const dittaIdCol    = dittaCol    + 'LookupId';
+
+    assegnazioniCache = (items || []).map(item => {
+      const f = item.fields || item;
+      const cantiereId = String(f[cantiereIdCol] || '');
+      const dittaId    = String(f[dittaIdCol]    || '');
+      // Cross-reference con le cache
+      const cantiereObj = cantieriCache.find(c => c.spId === cantiereId);
+      const dittaObj    = contattiCache.find(c => c.spId === dittaId);
+      return {
+        cantiere: cantiereObj?.nome || '',
+        ditta:    dittaObj?.nome    || ''
+      };
+    }).filter(a => a.cantiere && a.ditta);
+
+    console.log('Assegnazioni cache finale:', JSON.stringify(assegnazioniCache));
+  } catch(e) {
+    console.warn('loadAssegnazioni fallito:', e.message);
+    assegnazioniCache = [];
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CANTIERE CHANGE
+// ════════════════════════════════════════════════════════════════════════════
+function onCantierChange() {
+  const sel = document.getElementById('cantiere');
+  const opt = sel.options[sel.selectedIndex];
+  const idx = opt?.dataset.idx;
+  if (idx === undefined) { document.getElementById('cantiere-details').style.display='none'; resetAvanzamento(); return; }
+  const c = cantieriCache[parseInt(idx)];
+  if (!c) return;
+  document.getElementById('cantiere-details').style.display = 'block';
+  document.getElementById('info-codice').textContent    = c.codice      || '—';
+  document.getElementById('info-tipo').textContent      = c.tipoCantiere|| '—';
+  document.getElementById('info-cliente').textContent   = c.cliente     || '—';
+  document.getElementById('info-indirizzo').textContent = c.indirizzo   || '—';
+  document.getElementById('info-inizio').textContent    = c.inizio      ? fmtDate(c.inizio) : '—';
+  document.getElementById('info-fine').textContent      = c.fine        ? fmtDate(c.fine)   : '—';
+  document.getElementById('info-dl').textContent        = c.direttoreLavori || '—';
+  document.getElementById('info-cse').textContent       = c.cse         || '—';
+
+  // CIG e CUP: visibili solo per cantieri pubblici
+  const isPubblico = (c.tipoCantiere || '').toLowerCase().includes('pubbl');
+  const cigEl = document.getElementById('chip-cig');
+  const cupEl = document.getElementById('chip-cup');
+  if (isPubblico) {
+    cigEl.style.display = ''; document.getElementById('info-cig').textContent = c.cig || '—';
+    cupEl.style.display = ''; document.getElementById('info-cup').textContent = c.cup || '—';
+  } else {
+    cigEl.style.display = 'none';
+    cupEl.style.display = 'none';
+  }
+
+  calcolaAvanzamento(c.inizio, c.fine);
+
+  // Filtro ditte ricalcolato al momento del bisogno da getDitteFiltratePerCantiereCorrente()
+  // (vedi addDitta) — qui non serve più salvare nulla in cache.
+
+  // Popola tabella debug con i campi raw SharePoint
+  if (c.rawFields) {
+    const tbl = document.getElementById('debug-table');
+    tbl.innerHTML = '';
+    Object.keys(c.rawFields).filter(k => k.startsWith('field_') || ['Title','ContentType','id'].includes(k)).forEach(k => {
+      const displayName = cantColMap[k] || '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${k}${displayName ? ` <span style="color:var(--text-muted);font-weight:400">(${displayName})</span>` : ''}</td><td>${c.rawFields[k] ?? ''}</td>`;
+      tbl.appendChild(tr);
+    });
+  }
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function calcolaAvanzamento(inizio, fine) {
+  const oggi  = new Date(); oggi.setHours(0,0,0,0);
+  const start = new Date(inizio); start.setHours(0,0,0,0);
+  const end   = new Date(fine);   end.setHours(0,0,0,0);
+  if (!inizio || !fine || isNaN(start) || isNaN(end)) { resetAvanzamento(); return; }
+
+  const totale    = Math.round((end   - start) / 86400000);
+  const trascorsi = Math.round((oggi  - start) / 86400000);
+  const rimanenti = Math.round((end   - oggi)  / 86400000);
+  const pct = Math.max(0, Math.min(100, Math.round(trascorsi / totale * 100)));
+
+  document.getElementById('avanz-pct').textContent = pct + '%';
+  const fill = document.getElementById('progress-fill');
+  fill.style.width = pct + '%';
+  if      (pct >= 90) fill.style.background = 'linear-gradient(90deg,var(--warning),var(--error))';
+  else if (pct >= 70) fill.style.background = 'linear-gradient(90deg,var(--accent),var(--warning))';
+  else                fill.style.background = 'linear-gradient(90deg,var(--accent),var(--success))';
+
+  document.getElementById('avanz-giorni-trascorsi').textContent = `${trascorsi} gg trascorsi su ${totale} totali`;
+  const rimEl = document.getElementById('avanz-giorni-rimanenti');
+  if (rimanenti < 0) {
+    rimEl.textContent = `SCADUTO di ${Math.abs(rimanenti)} gg`; rimEl.className = 'avanz-danger';
+  } else if (rimanenti <= 15) {
+    rimEl.textContent = `⚠ ${rimanenti} gg rimanenti`; rimEl.className = 'avanz-warning';
+  } else {
+    rimEl.textContent = `${rimanenti} gg rimanenti`; rimEl.className = '';
+  }
+}
+
+function resetAvanzamento() {
+  document.getElementById('avanz-pct').textContent = '—';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('avanz-giorni-trascorsi').textContent = 'Seleziona cantiere per calcolare';
+  document.getElementById('avanz-giorni-rimanenti').textContent = '';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FORM INTERACTIONS
+// ════════════════════════════════════════════════════════════════════════════
+function selectMeteo(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function addManualAttrez() {
+  const inp = document.getElementById('new-attrez');
+  const nome = inp.value.trim();
+  if (!nome) return;
+  const div = document.createElement('div');
+  div.className = 'toggle-item on'; div.dataset.nome = nome;
+  div.onclick = () => div.classList.toggle('on');
+  div.innerHTML = `<span class="t-name">${nome}</span><div class="toggle-switch"></div>`;
+  document.getElementById('attrezzature-grid').appendChild(div);
+  inp.value = '';
+}
+
+function addDitta() {
+  const clone = document.getElementById('ditta-tpl').content.cloneNode(true);
+  const sel   = clone.querySelector('.d-select');
+
+  // Ricalcola sempre il filtro al momento del click (non fidarsi della cache
+  // popolata in onCantierChange: su connessioni lente/mobile loadAssegnazioni()
+  // potrebbe non essere ancora terminata quando l'utente seleziona il cantiere,
+  // lasciando ditteCantiereAttivo=null e mostrando l'anagrafica intera)
+  const ditteDaMostrare = getDitteFiltratePerCantiereCorrente();
+
+  ditteDaMostrare.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.nome;
+    opt.textContent = c.ruolo ? `${c.nome} (${c.ruolo})` : c.nome;
+    sel.appendChild(opt);
+  });
+  const optM = document.createElement('option');
+  optM.value = '__manual__'; optM.textContent = '✏️ Inserisci manualmente...';
+  sel.appendChild(optM);
+  sel.addEventListener('change', function() {
+    if (this.value !== '__manual__') return;
+    const nome = prompt('Nome ditta:');
+    if (nome) {
+      const o = document.createElement('option');
+      o.value = nome; o.textContent = nome;
+      this.insertBefore(o, this.lastElementChild);
+      this.value = nome;
+    } else { this.value = ''; }
+  });
+  document.getElementById('ditte-list').appendChild(clone);
+  document.getElementById('ore-totale-giornata').style.display = 'flex';
+}
+
+// Calcola ore per singola ditta e aggiorna totale giornata
+function aggiornaOreDitta(input) {
+  const item    = input.closest('.ditta-item');
+  const operai  = parseFloat(item.querySelector('.d-operai')?.value) || 0;
+  const ore     = parseFloat(item.querySelector('.d-ore')?.value)    || 0;
+  const totale  = operai * ore;
+  item.querySelector('.d-totale').textContent = totale > 0 ? totale + 'h' : '—';
+  aggiornaOreTotali();
+}
+
+function aggiornaOreTotali() {
+  let tot = 0;
+  document.querySelectorAll('.ditta-item').forEach(item => {
+    const operai = parseFloat(item.querySelector('.d-operai')?.value) || 0;
+    const ore    = parseFloat(item.querySelector('.d-ore')?.value)    || 0;
+    tot += operai * ore;
+  });
+  document.getElementById('ore-totale-val').textContent = tot > 0 ? tot + 'h' : '0h';
+  document.getElementById('ore-totale-giornata').style.display =
+    document.querySelectorAll('.ditta-item').length > 0 ? 'flex' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DATA COLLECTION
+// ════════════════════════════════════════════════════════════════════════════
+function getAttrezzatureAttive() {
+  return Array.from(document.querySelectorAll('#attrezzature-grid .toggle-item.on'))
+    .map(el => el.dataset.nome);
+}
+
+function getDitte() {
+  return Array.from(document.querySelectorAll('.ditta-item')).map(item => ({
+    nome:   item.querySelector('.d-select')?.value || '',
+    operai: parseInt(item.querySelector('.d-operai')?.value)    || 0,
+    ore:    parseFloat(item.querySelector('.d-ore')?.value)     || 0,
+    totale: (parseInt(item.querySelector('.d-operai')?.value)||0) * (parseFloat(item.querySelector('.d-ore')?.value)||0),
+    lav:    item.querySelector('.d-lav')?.value    || ''
+  })).filter(d => d.nome && d.nome !== '__manual__');
+}
+
+function getCantiere() {
+  const sel = document.getElementById('cantiere');
+  const opt = sel.options[sel.selectedIndex];
+  const idx = opt?.dataset.idx;
+  return idx !== undefined ? cantieriCache[parseInt(idx)] : null;
+}
+
+function getCantierePath() {
+  const c = getCantiere();
+  if (!c) return '';
+  const codice = c.codice || '';
+  const nome   = (c.nome || '').replace(/[\\/:*?"<>|]/g, '_');
+  return codice ? `${codice}_${nome}` : nome;
+}
+
+function getOreTotali() {
+  return getDitte().reduce((s, d) => s + d.totale, 0);
+}
+
+function getForm() {
+  const c = getCantiere();
+  const ditte = getDitte();
+  return {
+    data:          document.getElementById('data-rapportino').value,
+    cantiere:      document.getElementById('cantiere').value,
+    cantierePath:  getCantierePath(),
+    codice:        c?.codice        || '',
+    tipoCantiere:  c?.tipoCantiere  || '',
+    compilatoDa:   document.getElementById('compilato-da').value,
+    cliente:          c?.cliente          || '',
+    indirizzo:        c?.indirizzo        || '',
+    cig:              c?.cig              || '',
+    cup:              c?.cup              || '',
+    direttoreLavori:  c?.direttoreLavori  || '',
+    cse:              c?.cse              || '',
+    inizio:        c?.inizio    || '',
+    fine:          c?.fine      || '',
+    meteo:         document.querySelector('.pill.active')?.dataset.value || '',
+    temperatura:   document.getElementById('temperatura').value,
+    attrezzature:  getAttrezzatureAttive(),
+    ditte,
+    oreTotali:     getOreTotali(),
+    avanzamento:   document.getElementById('avanz-pct').textContent.replace('%','').replace('—',''),
+    lavorazioni:   document.getElementById('lavorazioni').value,
+    nonConformita: document.getElementById('non-conformita').value,
+    noteGenerali:  document.getElementById('note-generali').value
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SALVA RAPPORTINO — orchestratore principale
+// ════════════════════════════════════════════════════════════════════════════
+async function salvaRapportino() {
+  const f = getForm();
+  if (!f.data || !f.cantiere) { toast('Data e Cantiere obbligatori', 'error'); return; }
+
+  const btn = document.getElementById('btn-salva');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Salvataggio...';
+
+  let pdfUrl = '';
+  try {
+    // 1. Genera PDF blob
+    toast('📄 Generazione PDF...', '');
+    const pdfBlob = await generaPDFBlob(f);
+
+    // 2. Carica PDF su OneDrive
+    toast('☁️ Upload PDF su OneDrive...', '');
+    pdfUrl = await uploadPDF(f, pdfBlob);
+
+    // 3. Salva su SharePoint List
+    toast('📋 Salvataggio SharePoint...', '');
+    await salvaSharePoint(f, pdfUrl);
+
+    // 4. Aggiorna Excel su OneDrive
+    toast('📊 Aggiornamento Excel...', '');
+    await aggiornaExcel(f, pdfUrl);
+
+    toast('✅ Rapportino salvato!', 'success');
+    localStorage.removeItem('vb_draft');
+  } catch(e) {
+    toast('❌ Errore: ' + e.message, 'error');
+    salvaBozza(true);
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Salva Rapportino';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SHAREPOINT LIST SAVE
+// ════════════════════════════════════════════════════════════════════════════
+
+// Cache delle colonne di 04_Rapportini: displayName.toLowerCase() → internalName
+let rapportiniColMap = null;
+
+async function getRapportiniColMap() {
+  if (rapportiniColMap) return rapportiniColMap;
+  const data = await gGet(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.rapportini)}/columns?$select=name,displayName&$top=50`);
+  rapportiniColMap = {};
+  (data.value || []).forEach(c => {
+    rapportiniColMap[c.displayName.toLowerCase()] = c.name;
+    rapportiniColMap[c.name.toLowerCase()]         = c.name; // anche per internalName
+  });
+  console.log('04_Rapportini colonne:', data.value.map(c => `${c.name} → ${c.displayName}`));
+  return rapportiniColMap;
+}
+
+// Risolve il nome interno di una colonna cercando tra displayName e internalName
+function resolveCol(colMap, ...candidates) {
+  for (const name of candidates) {
+    const found = colMap[name.toLowerCase()];
+    if (found) return found;
+  }
+  return null;
+}
+
+async function salvaSharePoint(f, pdfUrl) {
+  const colMap = await getRapportiniColMap();
+
+  const ditteStr = f.ditte.map(d =>
+    `${d.nome} (${d.operai} operai × ${d.ore}h = ${d.totale}h): ${d.lav}`
+  ).join('\n');
+
+  // Costruisce l'oggetto fields usando solo colonne che esistono nella lista
+  const fields = { Title: `${f.cantiere} — ${f.data}` };
+
+  const addField = (candidates, value) => {
+    if (value === null || value === undefined || value === '') return;
+    const col = resolveCol(colMap, ...candidates);
+    if (col && col !== 'Title') fields[col] = value;
+  };
+
+  addField(['DataRapportino','Data','DataGiornata','field_2'],                f.data || null);
+  addField(['Cantiere','NomeCantiere','field_3'],                             f.cantiere);
+  addField(['Cliente','Committente','RagioneSociale','field_4'],              f.cliente);
+  addField(['Meteo','CondMeteo','field_5'],                                   f.meteo);
+  addField(['Temperatura','Temp','field_6'],                                  f.temperatura ? parseFloat(f.temperatura) : null);
+  addField(['AttrezzatureFisse','Attrezzature','field_7'],                    f.attrezzature.join(', '));
+  addField(['DittePresenti','Ditte','field_8'],                               f.ditte.map(d=>d.nome).join(', '));
+  addField(['LavorazioniPerDitta','DettaglioDitte','field_9'],                ditteStr);
+  addField(['Lavorazioni','LavorazioniGiorno','DescrizioneLavori','field_10'],f.lavorazioni);
+  addField(['OreTotali','OreGiornata','TotaleOre','field_11'],                f.oreTotali ? f.oreTotali : null);
+  addField(['Avanzamento','AvanzamentoPerc','field_12'],                      f.avanzamento ? parseFloat(f.avanzamento) : null);
+  addField(['NonConformita','NonConformità','field_13'],                      f.nonConformita);
+  addField(['NoteGenerali','Note','field_14'],                                f.noteGenerali);
+  addField(['CompilatoDa','Compilatore','field_15'],                          f.compilatoDa);
+  addField(['LinkPDF','PDF','UrlPDF','field_16'],                             pdfUrl);
+
+  console.log('Salvo su SharePoint con fields:', fields);
+  await gPost(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.rapportini)}/items`, { fields });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOGO → PNG data URL (SVG renderizzato su canvas)
+// ════════════════════════════════════════════════════════════════════════════
+function getLogoDataUrl() {
+  return new Promise(resolve => {
+    try {
+      const svg = `<svg viewBox="0 0 520 480" xmlns="http://www.w3.org/2000/svg">
+        <rect width="520" height="480" fill="#000"/>
+        <path d="M 279 107 A 185 185 0 1 0 279 373" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+        <path d="M 273 111 A 181 181 0 1 0 273 369" fill="none" stroke="white" stroke-width="2"   stroke-linecap="round" opacity="0.4"/>
+        <path d="M 285 103 A 189 189 0 1 0 285 377" fill="none" stroke="white" stroke-width="2"   stroke-linecap="round" opacity="0.25"/>
+        <polygon points="100,162 188,162 144,228" fill="white"/>
+        <text x="198" y="222" font-family="Georgia,'Times New Roman',serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">ISION</text>
+        <text x="100" y="318" font-family="Georgia,'Times New Roman',serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">BUILD</text>
+      </svg>`;
+      const blob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
+      const url  = URL.createObjectURL(blob);
+      const img  = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas'); c.width=520; c.height=480;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle='#000'; ctx.fillRect(0,0,520,480);
+          ctx.drawImage(img,0,0,520,480);
+          URL.revokeObjectURL(url); resolve(c.toDataURL('image/png'));
+        } catch(e){ URL.revokeObjectURL(url); resolve(null); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    } catch(e){ resolve(null); }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PDF GENERATION — dark theme matching l'app (ritorna Blob)
+// ════════════════════════════════════════════════════════════════════════════
+async function generaPDFBlob(f) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ format:'a4', unit:'mm' });
+  const W=210, PH=297, M=13, IW=184;
+
+  const BG=[255,255,255], SU=[245,245,248], S2=[235,235,240], BD=[200,200,210],
+        GO=[30,70,140], TX=[20,20,25], MU=[110,110,120],
+        GR=[34,139,80], WA=[200,120,0], ER=[200,50,50];
+
+  let y=0;
+  const sf=(...c)=>doc.setFillColor(...c), sd=(...c)=>doc.setDrawColor(...c), st=(...c)=>doc.setTextColor(...c);
+
+  function pageBreak(need) {
+    if (y+need > PH-18) { doc.addPage(); sf(...BG); doc.rect(0,0,W,PH,'F'); y=14; }
+  }
+
+  function box(ly,lh,col=SU) {
+    sf(...col); sd(...BD); doc.setLineWidth(0.18);
+    doc.roundedRect(M,ly,IW,lh,2,2,'FD');
+  }
+
+  function secTitle(txt,ly) {
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); st(...GO);
+    doc.text(txt, M+4, ly+7);
+    sd(...BD); doc.setLineWidth(0.15); doc.line(M+4,ly+9.5,M+IW-4,ly+9.5);
+    return ly+13;
+  }
+
+  function chip(cx,cy,cw,ch,lbl,val) {
+    sf(...S2); sd(...BD); doc.setLineWidth(0.12);
+    doc.roundedRect(cx,cy,cw,ch,1.5,1.5,'FD');
+    doc.setFontSize(6); doc.setFont('helvetica','bold'); st(...GO);
+    doc.text(lbl.toUpperCase(), cx+3, cy+5.5);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(doc.splitTextToSize(String(val||'—'),cw-5)[0], cx+3, cy+11.5);
+  }
+
+  // ── SFONDO PAGINA 1 ─────────────────────────────
+  sf(...BG); doc.rect(0,0,W,PH,'F');
+
+  // ── HEADER ──────────────────────────────────────
+  doc.setFontSize(21); doc.setFont('helvetica','bold'); st(...GO);
+  doc.text('VISION BUILD', M+4, 22);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); st(...MU);
+  doc.text('RAPPORTINO DI CANTIERE', M+4, 29);
+  sd(...GO); doc.setLineWidth(0.35); doc.line(M+4,32,W-M,32);
+  doc.setFontSize(8); st(...TX);
+  doc.text(`Data: ${f.data||'—'}`, M+4, 38);
+  doc.text(`Compilato da: ${f.compilatoDa||'—'}`, M+4, 45);
+
+  y = 58;
+
+  // ── CANTIERE ────────────────────────────────────
+  const isPub = (f.tipoCantiere||'').toLowerCase().includes('pubbl');
+  const cantH = isPub ? 136 : 120;
+  box(y, cantH);
+  let iy = secTitle('CANTIERE', y);
+
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); st(...TX);
+  doc.text((f.cantiere||'').toUpperCase(), M+4, iy); iy+=5;
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); st(...MU);
+  doc.text(`Codice: ${f.codice||'—'}  ·  ${f.tipoCantiere||'—'}`, M+4, iy+3); iy+=9;
+
+  chip(M+4, iy, IW-8, 14, 'Cliente / Committente', f.cliente); iy+=16;
+  chip(M+4, iy, IW-8, 14, 'Indirizzo Cantiere', f.indirizzo); iy+=16;
+
+  const hw=(IW-12)/2;
+  chip(M+4,      iy, hw, 14, 'Inizio Lavori',     f.inizio ? fmtDate(f.inizio) : '—');
+  chip(M+4+hw+4, iy, hw, 14, 'Fine Contrattuale', f.fine   ? fmtDate(f.fine)   : '—');
+  iy+=16;
+
+  chip(M+4,      iy, hw, 14, 'Direttore Lavori', f.direttoreLavori || '—');
+  chip(M+4+hw+4, iy, hw, 14, 'CSE / CSP',        f.cse || '—');
+  iy+=16;
+
+  if (isPub) {
+    chip(M+4,      iy, hw, 14, 'CIG', f.cig);
+    chip(M+4+hw+4, iy, hw, 14, 'CUP', f.cup);
+  }
+
+  y += cantH + 5;
+
+  // ── AVANZAMENTO ─────────────────────────────────
+  const hasA = f.avanzamento !== '';
+  const pct  = parseFloat(f.avanzamento) || 0;
+  box(y, 34);
+  let ay = secTitle('AVANZAMENTO TEMPI CONTRATTUALI', y);
+
+  const bx=M+4, bw=IW-58, bh=5;
+  sf(...BD); doc.roundedRect(bx,ay,bw,bh,1.5,1.5,'F');
+  if (hasA && pct>0) {
+    const fw=Math.max(3,bw*pct/100);
+    if(pct>=90)sf(...ER); else if(pct>=70)sf(...WA); else sf(...GR);
+    doc.roundedRect(bx,ay,fw,bh,1.5,1.5,'F');
+  }
+  doc.setFontSize(18); doc.setFont('helvetica','bold'); st(...GO);
+  doc.text(hasA?`${pct}%`:'—', M+IW-4, ay+5, {align:'right'});
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); st(...MU);
+  doc.text(`Inizio: ${f.inizio?fmtDate(f.inizio):'—'}   ·   Fine Contr.: ${f.fine?fmtDate(f.fine):'—'}`, bx, ay+11);
+  st(...TX);
+  doc.text(`Meteo: ${f.meteo||'—'}  ·  Temperatura: ${f.temperatura?f.temperatura+'°C':'—'}`, bx, ay+18);
+
+  y += 39;
+
+  // ── LAVORAZIONI ─────────────────────────────────
+  if (f.lavorazioni) {
+    const ll=doc.splitTextToSize(f.lavorazioni,IW-10);
+    const lh=16+ll.length*4.8;
+    pageBreak(lh+5); box(y,lh);
+    const ly2=secTitle('LAVORAZIONI DEL GIORNO',y);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(ll, M+4, ly2);
+    y+=lh+5;
+  }
+
+  // ── DITTE ───────────────────────────────────────
+  if (f.ditte.length>0) {
+    pageBreak(40);
+    doc.autoTable({
+      startY:y,
+      head:[['Ditta / Subappaltatore','Operai','Ore','Totale','Lavorazioni svolte']],
+      body:f.ditte.map(d=>[d.nome||'—',d.operai||'—',d.ore||'—',d.totale>0?d.totale+'h':'—',d.lav||'—']),
+      styles:{fontSize:8.5,cellPadding:[3,3,3,3],textColor:TX,fillColor:S2,lineColor:BD,lineWidth:0.15},
+      headStyles:{fillColor:SU,textColor:GO,fontStyle:'bold',fontSize:8,lineColor:BD},
+      alternateRowStyles:{fillColor:[230,230,236]},
+      columnStyles:{0:{cellWidth:52},1:{cellWidth:13,halign:'center'},2:{cellWidth:11,halign:'center'},3:{cellWidth:16,halign:'center'}},
+      margin:{left:M,right:M}, theme:'plain',
+      willDrawPage: () => { doc.setFillColor(...BG); doc.rect(0,0,W,PH,'F'); }
+    });
+    y=doc.lastAutoTable.finalY+4;
+    pageBreak(17);
+    sf(...SU); sd(...GO); doc.setLineWidth(0.3);
+    doc.roundedRect(W-M-50,y,50,11,1.5,1.5,'FD');
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); st(...GO);
+    doc.text(`Ore totali giornata: ${f.oreTotali}h`, W-M-47, y+7.5);
+    y+=17;
+  }
+
+  // ── ATTREZZATURE ────────────────────────────────
+  if (f.attrezzature.length>0) {
+    pageBreak(24); box(y,22);
+    const aty=secTitle('ATTREZZATURE IN CANTIERE',y);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(f.attrezzature.join('   ·   '), M+4, aty);
+    y+=27;
+  }
+
+  // ── NON CONFORMITÀ ──────────────────────────────
+  if (f.nonConformita) {
+    const ncl=doc.splitTextToSize(f.nonConformita,IW-12);
+    const ncH=20+ncl.length*4.8;
+    pageBreak(ncH+5);
+    sf(255,248,230); sd(...WA); doc.setLineWidth(0.3);
+    doc.roundedRect(M,y,IW,ncH,2,2,'FD');
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); st(...WA);
+    doc.text('⚠  NON CONFORMITÀ', M+4, y+8);
+    sd(...WA); doc.setLineWidth(0.15); doc.line(M+4,y+10.5,M+IW-4,y+10.5);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); st(120,60,0);
+    doc.text(ncl, M+4, y+17);
+    y+=ncH+5;
+  }
+
+  // ── NOTE GENERALI ───────────────────────────────
+  if (f.noteGenerali) {
+    const nl=doc.splitTextToSize(f.noteGenerali,IW-10);
+    const nH=16+nl.length*4.8;
+    pageBreak(nH+5); box(y,nH);
+    const ny=secTitle('NOTE GENERALI',y);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(nl, M+4, ny);
+    y+=nH+5;
+  }
+
+  // ── FOOTER (tutte le pagine) ─────────────────────
+  const nPages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=nPages;i++){
+    doc.setPage(i);
+    sf(...BG); doc.rect(0,PH-14,W,14,'F');
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); st(...MU);
+    doc.text('Vision Build Srls', M, PH-5);
+    doc.text('RAPPORTINO DI CANTIERE', W/2, PH-5, {align:'center'});
+    doc.text(`${new Date().toLocaleDateString('it-IT')}  ·  Pag. ${i}/${nPages}`, W-M, PH-5, {align:'right'});
+  }
+
+  return new Blob([doc.output('arraybuffer')], {type:'application/pdf'});
+}
+
+// Anteprima PDF (scarica senza salvare su cloud)
+async function anteprimaPDF() {
+  const f = getForm();
+  if (!f.cantiere) { toast('Seleziona prima un cantiere', 'error'); return; }
+  try {
+    toast('📄 Generazione PDF...', '');
+    const blob = await generaPDFBlob(f);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=`Anteprima_${f.codice||f.cantiere}_${f.data||'bozza'}.pdf`;
+    a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000);
+    toast('✅ PDF scaricato', 'success');
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// UPLOAD PDF SU ONEDRIVE
+// ════════════════════════════════════════════════════════════════════════════
+async function uploadPDF(f, pdfBlob) {
+  const folderPath = `${f.cantierePath}/RAPPORTINI`;
+  const filename   = `Rapportino_${f.codice || f.cantiere.replace(/[\\/:*?"<>|]/g,'_')}_${f.data}.pdf`;
+  const uploadPath = `${G}/drives/${driveId}/root:/${folderPath}/${filename}:/content`;
+
+  const fileData = await gPut(uploadPath, pdfBlob);
+  const fileId   = fileData.id;
+
+  // Crea link condivisibile
+  try {
+    const link = await gPost(`${G}/drives/${driveId}/items/${fileId}/createLink`, {
+      type: 'view', scope: 'organization'
+    });
+    return link.link?.webUrl || fileData.webUrl || '';
+  } catch(e) {
+    return fileData.webUrl || '';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXCEL 3 SHEET SU ONEDRIVE
+// ════════════════════════════════════════════════════════════════════════════
+async function aggiornaExcel(f, pdfUrl) {
+  if (typeof XLSX === 'undefined') throw new Error('SheetJS non caricato');
+
+  const codice     = f.codice || f.cantiere.replace(/[\\/:*?"<>|]/g,'_');
+  const folderPath = `${f.cantierePath}/RAPPORTINI`;
+  const filename   = `Rapportini_${codice}.xlsx`;
+  const filePath   = `${G}/drives/${driveId}/root:/${folderPath}/${filename}`;
+
+  // Prova a scaricare file esistente
+  let wb = null;
+  try {
+    const tk   = await getToken();
+    const info = await gGet(filePath);
+    const resp = await fetch(`${G}/drives/${driveId}/items/${info.id}/content`, {
+      headers: { Authorization: `Bearer ${tk}` }
+    });
+    if (resp.ok) {
+      const ab = await resp.arrayBuffer();
+      wb = XLSX.read(ab, { type:'array' });
+    }
+  } catch(e) {
+    wb = null; // File non esiste ancora — lo creiamo
+  }
+
+  if (!wb) wb = XLSX.utils.book_new();
+
+  const idGiornata = `${f.data}_${codice}`;
+
+  // ── Sheet 1: Giornata ──
+  const HDR_G = ['ID Giornata','Data','Meteo','Temp (°C)','Avanzamento %','Lavorazioni giorno','Ore totali','Non conformità','Note','Compilato da','PDF'];
+  const rowG  = [idGiornata, f.data, f.meteo, f.temperatura||'', f.avanzamento?f.avanzamento+'%':'', f.lavorazioni, f.oreTotali, f.nonConformita, f.noteGenerali, f.compilatoDa, pdfUrl];
+
+  let wsG = wb.Sheets['Giornata'];
+  if (!wsG) {
+    wsG = XLSX.utils.aoa_to_sheet([HDR_G]);
+    wsG['!cols'] = [14,12,10,8,12,40,10,30,30,16,50].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, wsG, 'Giornata');
+  }
+  XLSX.utils.sheet_add_aoa(wsG, [rowG], { origin:-1 });
+
+  // ── Sheet 2: Ditte ──
+  const HDR_D = ['ID Giornata','Data','Ditta','N° Operai','Ore','Totale Ore','Lavorazioni ditta'];
+  const rowsD = f.ditte.map(d => [idGiornata, f.data, d.nome, d.operai, d.ore, d.totale, d.lav]);
+
+  let wsD = wb.Sheets['Ditte'];
+  if (!wsD) {
+    wsD = XLSX.utils.aoa_to_sheet([HDR_D]);
+    wsD['!cols'] = [22,12,30,10,8,10,50].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, wsD, 'Ditte');
+  }
+  if (rowsD.length) XLSX.utils.sheet_add_aoa(wsD, rowsD, { origin:-1 });
+
+  // ── Sheet 3: Attrezzature ──
+  const HDR_A = ['ID Giornata','Data','Attrezzatura','Note'];
+  const rowsA = f.attrezzature.map(a => [idGiornata, f.data, a, '']);
+
+  let wsA = wb.Sheets['Attrezzature'];
+  if (!wsA) {
+    wsA = XLSX.utils.aoa_to_sheet([HDR_A]);
+    wsA['!cols'] = [22,12,25,40].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, wsA, 'Attrezzature');
+  }
+  if (rowsA.length) XLSX.utils.sheet_add_aoa(wsA, rowsA, { origin:-1 });
+
+  // Upload su OneDrive
+  const wbOut = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const blob  = new Blob([wbOut], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  await gPut(`${filePath}:/content`, blob);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// BOZZA LOCALE
+// ════════════════════════════════════════════════════════════════════════════
+function salvaBozza(silent=false) {
+  localStorage.setItem('vb_draft', JSON.stringify(getForm()));
+  if (!silent) toast('Bozza salvata', 'success');
+}
+
+function loadDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem('vb_draft') || 'null');
+    if (!d) return;
+    if (d.temperatura)   document.getElementById('temperatura').value   = d.temperatura;
+    if (d.lavorazioni)   document.getElementById('lavorazioni').value   = d.lavorazioni;
+    if (d.nonConformita) document.getElementById('non-conformita').value = d.nonConformita;
+    if (d.noteGenerali)  document.getElementById('note-generali').value  = d.noteGenerali;
+    if (d.meteo) { const p=document.querySelector(`.pill[data-value="${d.meteo}"]`); if(p) p.classList.add('active'); }
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════════════════════
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
