@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Vision Build — Rapportino Tecnico</title>
+<script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg:       #0e0e0f;
+    --surface:  #161618;
+    --surface2: #1e1e21;
+    --surface3: #252528;
+    --border:   #2a2a2e;
+    --border2:  #38383e;
+    --accent:   #c8a96e;
+    --accent2:  #a8844e;
+    --text:     #f0f0f0;
+    --muted:    #777;
+    --success:  #4caf7d;
+    --warning:  #ffa726;
+    --error:    #ef5350;
+    --radius:   12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo-wrap { width: 42px; height: 42px; background: #000; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+  .logo-wrap svg { width: 38px; height: 38px; }
+  .header-title { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+  .header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .badge.ok { background: rgba(76,175,125,.15); border-color: var(--success); color: var(--success); }
+  .badge.err { background: rgba(239,83,80,.15); border-color: var(--error); color: var(--error); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .btn-home { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-family: inherit; transition: border-color .2s, color .2s; }
+  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+
+  .container { max-width: 640px; margin: 0 auto; padding: 20px 16px 100px; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; }
+  input, select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-size: 14px; outline: none; font-family: inherit;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .toggle-row:first-child { padding-top: 0; }
+  .toggle-label { font-size: 14px; font-weight: 500; }
+  .toggle-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .toggle { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--surface3); border-radius: 13px; cursor: pointer; transition: background .2s; border: 1px solid var(--border2); }
+  .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--muted); border-radius: 50%; transition: transform .2s, background .2s; }
+  .toggle input:checked + .toggle-slider { background: rgba(200,169,110,.2); border-color: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--accent); }
+
+  .cantiere-cards { display: flex; flex-direction: column; gap: 8px; }
+  .cant-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; transition: border-color .2s, background .2s; }
+  .cant-card.active { border-color: var(--accent); background: rgba(200,169,110,.06); }
+  .cant-card.sopralluogo-card { border-style: dashed; }
+  .cant-card.sopralluogo-card.active { border-color: var(--success); background: rgba(76,175,125,.06); }
+  .cant-card.chiuso-card { border-color: rgba(255,167,38,.25); }
+  .cant-card.chiuso-card.active { border-color: var(--warning); background: rgba(255,167,38,.06); }
+  .btn-chiusi { width: 100%; margin-top: 8px; padding: 10px 14px; background: transparent; border: 1px dashed rgba(255,167,38,.4); border-radius: 8px; color: var(--warning); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; transition: background .2s; }
+  .btn-chiusi:hover { background: rgba(255,167,38,.06); }
+  .chiusi-section { display: none; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .cant-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .cant-info { flex: 1; min-width: 0; }
+  .cant-nome { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cant-codice { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .cant-ore-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .cant-ore-row label { margin: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .ore-btns { display: flex; align-items: center; gap: 6px; }
+  .ore-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+  .ore-btn:active { background: var(--surface); }
+  .ore-val { font-size: 16px; font-weight: 700; color: var(--accent); min-width: 40px; text-align: center; }
+  .ore-input { width: 56px; height: 30px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface3); color: var(--accent); font-size: 16px; font-weight: 700; text-align: center; padding: 0 4px; }
+  .cant-lav { margin-top: 10px; }
+  .cant-lav input { font-size: 13px; padding: 8px 10px; }
+
+  .trasferta-details { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .trasferta-check-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; cursor: pointer; transition: border-color .2s, background .2s; }
+  .trasferta-check-item.checked { border-color: var(--accent); background: rgba(200,169,110,.06); }
+  .trasferta-check-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .trasferta-check-item span { font-size: 13px; }
+
+  .btn-salva { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #1a1000; font-weight: 700; font-size: 15px; border: none; border-radius: 10px; cursor: pointer; letter-spacing: .3px; transition: opacity .2s; }
+  .btn-salva:active { opacity: .85; }
+  .btn-salva:disabled { opacity: .5; cursor: not-allowed; }
+
+  .empty-state { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
+  .err-box { background: rgba(239,83,80,.1); border: 1px solid var(--error); border-radius: 8px; padding: 12px 16px; color: var(--error); font-size: 13px; margin-bottom: 14px; display: none; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(200,169,110,.3); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; gap: 20px; padding: 40px 20px; }
+  .auth-logo { width: 80px; height: 80px; background: #000; border-radius: 16px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .auth-logo svg { width: 70px; height: 70px; }
+  .auth-title { font-size: 22px; font-weight: 700; color: var(--accent); text-align: center; }
+  .auth-sub { font-size: 13px; color: var(--muted); text-align: center; max-width: 280px; line-height: 1.5; }
+  .btn-login { padding: 14px 40px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #1a1000; font-weight: 700; font-size: 15px; border: none; border-radius: 10px; cursor: pointer; }
+
+  .ore-totali-bar { background: var(--surface3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .ore-totali-label { font-size: 12px; color: var(--muted); }
+  .ore-totali-val { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .page-header { display:flex; align-items:center; justify-content:space-between; max-width:680px; margin:0 auto; padding:20px 16px 0; }
+  .page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; color:var(--text); }
+  .btn-back { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-family:inherit; transition:all .2s; }
+  .btn-back:hover { background:var(--surface2); border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo-wrap">
+      <svg viewBox="0 0 520 480" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 279 107 A 185 185 0 1 0 279 373" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+        <polygon points="100,162 188,162 144,228" fill="white"/>
+        <text x="198" y="222" font-family="Georgia,serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">ISION</text>
+        <text x="100" y="318" font-family="Georgia,serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">BUILD</text>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">RAPPORTINO TECNICO</div>
+      <div class="header-sub">Vision Build Srls</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-home" onclick="tornaHome()">← Torna a Home</button>
+    <div class="badge" id="badge">non connesso</div>
+  </div>
+</div>
+
+<div id="auth-screen">
+  <div class="auth-logo">
+    <svg viewBox="0 0 520 480" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 279 107 A 185 185 0 1 0 279 373" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+      <polygon points="100,162 188,162 144,228" fill="white"/>
+      <text x="198" y="222" font-family="Georgia,serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">ISION</text>
+      <text x="100" y="318" font-family="Georgia,serif" font-size="94" font-weight="900" fill="white" letter-spacing="-1">BUILD</text>
+    </svg>
+  </div>
+  <div class="auth-title">Rapportino Tecnico</div>
+  <div class="auth-sub">Accedi con il tuo account Microsoft per compilare il rapportino giornaliero.</div>
+  <button class="btn-login" onclick="doLogin()">Accedi con Microsoft</button>
+</div>
+
+<div id="app" style="display:none">
+  <div class="page-header">
+    <div class="page-title">Rapportino Tecnico</div>
+    <button class="btn-back" onclick="tornaHome()">← Torna a Home</button>
+  </div>
+
+  <div class="container">
+    <div class="err-box" id="err-box"></div>
+
+    <!-- 1. GIORNATA -->
+    <div class="section">
+      <div class="section-title">📅 Giornata</div>
+      <div class="row2">
+        <div class="field">
+          <label>Tecnico</label>
+          <select id="tecnico">
+            <option value="">— Seleziona —</option>
+            <option value="Matteo Virili">Matteo Virili</option>
+            <option value="Salvatore Schembari">Salvatore Schembari</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Data</label>
+          <input type="date" id="data">
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CANTIERI -->
+    <div class="section">
+      <div class="section-title">🏗️ Cantieri lavorati oggi</div>
+      <div class="cantiere-cards" id="cantiere-cards">
+        <div class="empty-state"><span class="spinner"></span> Caricamento cantieri...</div>
+      </div>
+      <div class="ore-totali-bar" id="ore-totali-bar" style="display:none">
+        <span class="ore-totali-label">Ore totali giornata</span>
+        <span class="ore-totali-val" id="ore-totali-val">0h</span>
+      </div>
+    </div>
+
+    <!-- 3. TRASFERTA -->
+    <div class="section">
+      <div class="section-title">🚗 Trasferta</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Trasferta effettuata</div>
+          <div class="toggle-sub">Fuori sede oggi</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="trasferta-toggle" onchange="onTrasfertaChange()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="trasferta-details" id="trasferta-details" style="display:none">
+        <div class="field">
+          <label>Cantieri / Destinazioni (seleziona tutti)</label>
+          <div id="trasferta-cantieri-list" style="display:flex;flex-direction:column;gap:6px;margin-top:4px"></div>
+        </div>
+        <div class="field">
+          <label>Km percorsi (opz.)</label>
+          <input type="number" id="trasferta-km" placeholder="es. 45" min="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. NOTE -->
+    <div class="section">
+      <div class="section-title">📝 Note</div>
+      <div class="field">
+        <label>Note generali sulla giornata</label>
+        <textarea id="note" rows="3" placeholder="Attività svolte, problemi, altro..."></textarea>
+      </div>
+    </div>
+
+    <button class="btn-salva" id="btn-salva" onclick="salvaRapportino()">💾 Salva Rapportino</button>
+  </div>
+</div>
+
+<script>
+function tornaHome() {
+  if (window.history.length > 1) { window.history.back(); }
+  else { window.close(); }
+}
+
+const CLIENT_ID  = '28d34213-6034-4b0a-b5cc-8201a925a0f9';
+const TENANT_ID  = '8f61e0b7-e348-430b-8c32-203f296d368d';
+const SITE_HOST  = 'visionbuildsrls.sharepoint.com';
+const SITE_PATH  = '/sites/RapportiniCantieri';
+const G          = 'https://graph.microsoft.com/v1.0';
+const SCOPES     = ['Sites.ReadWrite.All', 'Files.ReadWrite.All', 'User.Read'];
+
+const LISTS = {
+  cantieri:   '01_ANAGRAFICA_CANTIERI',
+  rapportini: '06_Rapportini_Tecnici'
+};
+
+let msalApp  = null;
+let account  = null;
+let siteId   = null;
+let driveId  = null;
+let cantieriCache = [];
+
+window.onload = async () => {
+  document.getElementById('data').value = new Date().toISOString().split('T')[0];
+  msalApp = new msal.PublicClientApplication({
+    auth: { clientId: CLIENT_ID, authority: `https://login.microsoftonline.com/${TENANT_ID}`, redirectUri: window.location.href.split('?')[0] },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  await msalApp.initialize();
+  const resp = await msalApp.handleRedirectPromise();
+  if (resp) account = resp.account;
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length > 0) { account = accounts[0]; await initApp(); }
+};
+
+async function doLogin() { await msalApp.loginRedirect({ scopes: SCOPES }); }
+
+async function getToken() {
+  try {
+    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account });
+    return r.accessToken;
+  } catch { await msalApp.acquireTokenRedirect({ scopes: SCOPES }); }
+}
+
+async function gGet(url) {
+  const token = await getToken();
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function gPost(url, body) {
+  const token = await getToken();
+  const r = await fetch(url, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function gPut(url, body, ct = 'application/octet-stream') {
+  const token = await getToken();
+  const r = await fetch(url, {
+    method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': ct },
+    body
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function gPatch(url, body) {
+  const token = await getToken();
+  const r = await fetch(url, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function getAllListItems(url) {
+  let items = [], nextUrl = url;
+  while (nextUrl) {
+    const data = await gGet(nextUrl);
+    items = items.concat(data.value || []);
+    nextUrl = data['@odata.nextLink'] || null;
+  }
+  return items;
+}
+
+function setBadge(type, txt) {
+  const b = document.getElementById('badge');
+  b.textContent = txt;
+  b.className = 'badge' + (type === 'ok' ? ' ok' : type === 'error' ? ' err' : '');
+}
+
+function showErr(msg) {
+  const b = document.getElementById('err-box');
+  b.textContent = msg; b.style.display = 'block';
+  setTimeout(() => b.style.display = 'none', 6000);
+}
+
+async function initApp() {
+  setBadge('', 'caricamento...');
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  try {
+    const siteData = await gGet(`${G}/sites/${SITE_HOST}:${SITE_PATH}`);
+    siteId = siteData.id;
+    const drivesData = await gGet(`${G}/sites/${siteId}/drives`);
+    driveId = drivesData.value?.[0]?.id;
+    await loadCantieri();
+    setBadge('ok', '● connesso');
+  } catch(e) {
+    setBadge('error', 'errore');
+    showErr('Errore connessione: ' + e.message);
+  }
+}
+
+async function loadCantieri() {
+  // Trova il nome interno del campo Status Cantiere
+  let statusFieldName = 'field_19'; // fallback
+  try {
+    const colData = await gGet(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.cantieri)}/columns?$select=name,displayName&$top=100`);
+    const statusCol = (colData.value || []).find(c => {
+      const dn = c.displayName.toLowerCase();
+      return dn.includes('status') || dn.includes('stato');
+    });
+    if (statusCol) {
+      statusFieldName = statusCol.name;
+      console.log('Status field trovato:', statusCol.displayName, '→', statusFieldName);
+    }
+  } catch(e) { console.warn('ColMap cantieri fallito:', e.message); }
+
+  const items = await getAllListItems(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.cantieri)}/items?expand=fields&$top=500`);
+  cantieriCache = [];
+  items.forEach(item => {
+    const f = item.fields || item;
+    const nome   = f.field_1 || '';
+    const codice = f.field_2 || '';
+    // Prova il nome trovato, poi fallback su varianti comuni
+    const status = f[statusFieldName] || f['field_19'] || f['Status'] || f['StatusCantiere'] || '';
+    if (!nome) return;
+    console.log(`Cantiere: ${nome} | status field "${statusFieldName}":`, f[statusFieldName], '| status:', status);
+    cantieriCache.push({ spId: String(item.id || f.id || ''), nome, codice, status });
+  });
+  buildCantiereCards();
+}
+
+function makeCard(cardId, nome, sub, extraClass) {
+  const card = document.createElement('div');
+  card.className = 'cant-card' + (extraClass ? ' ' + extraClass : '');
+  card.dataset.cardId = cardId;
+  const placeholder = cardId === 'sopralluogo' ? 'Luogo / oggetto sopralluogo...' : 'Attività svolta su questo cantiere (opz.)...';
+  card.innerHTML = `
+    <div class="cant-header">
+      <div class="cant-info">
+        <div class="cant-nome">${nome}</div>
+        <div class="cant-codice">${sub}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" onchange="onToggle(this,'${cardId}')">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="cant-ore-row" style="display:none">
+      <label>Ore lavorate:</label>
+      <div class="ore-btns">
+        <button class="ore-btn" onclick="cambiaOre('${cardId}',-0.5)">−</button>
+        <input type="number" class="ore-input" id="oreinput-${cardId}" value="0.5" min="0.5" max="16" step="0.5"
+          oninput="setOreDirectly('${cardId}', this.value)">
+        <button class="ore-btn" onclick="cambiaOre('${cardId}',0.5)">+</button>
+      </div>
+    </div>
+    <div class="cant-lav" style="display:none">
+      <input type="text" id="lav-${cardId}" placeholder="${placeholder}">
+    </div>
+  `;
+  return card;
+}
+
+function buildCantiereCards() {
+  const container = document.getElementById('cantiere-cards');
+  const attivi  = cantieriCache.filter(c => (c.status || '').toLowerCase().includes('attiv'));
+  const chiusi  = cantieriCache.filter(c => !(c.status || '').toLowerCase().includes('attiv') && c.nome);
+
+  if (attivi.length === 0 && chiusi.length === 0) {
+    container.innerHTML = '<div class="empty-state">Nessun cantiere trovato</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  // Cantieri attivi
+  attivi.forEach((c, i) => {
+    container.appendChild(makeCard(`cantiere-${i}`, c.nome, c.codice, ''));
+  });
+
+  // Sopralluogo (fisso)
+  container.appendChild(makeCard('sopralluogo', '🔍 Sopralluogo/Preventivi', 'Visita / ispezione / preventivo / riunione', 'sopralluogo-card'));
+
+  // Cantieri chiusi (collapsibili)
+  if (chiusi.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-chiusi';
+    btn.id = 'btn-chiusi';
+    btn.onclick = toggleChiusi;
+    btn.innerHTML = '⚠️ Aggiungi ore su cantiere chiuso / fuori lista';
+    container.appendChild(btn);
+
+    const section = document.createElement('div');
+    section.className = 'chiusi-section';
+    section.id = 'chiusi-section';
+    chiusi.forEach((c, i) => {
+      const statusLabel = c.status ? `${c.codice} · ${c.status}` : c.codice;
+      section.appendChild(makeCard(`chiuso-${i}`, c.nome, statusLabel, 'chiuso-card'));
+    });
+    container.appendChild(section);
+  }
+}
+
+function toggleChiusi() {
+  const s = document.getElementById('chiusi-section');
+  const open = s.style.display === 'flex';
+  s.style.display = open ? 'none' : 'flex';
+  document.getElementById('btn-chiusi').innerHTML =
+    open ? '⚠️ Aggiungi ore su cantiere chiuso / fuori lista' : '▲ Nascondi cantieri chiusi';
+}
+
+function onToggle(cb, cardId) {
+  const card = document.querySelector(`.cant-card[data-card-id="${cardId}"]`);
+  const oreRow = card.querySelector('.cant-ore-row');
+  const lavRow = card.querySelector('.cant-lav');
+  if (cb.checked) {
+    card.classList.add('active');
+    oreRow.style.display = 'flex';
+    lavRow.style.display = 'block';
+    if (!card.dataset.ore) { card.dataset.ore = '0.5'; const inp = document.getElementById(`oreinput-${cardId}`); if (inp) inp.value = '0.5'; }
+  } else {
+    card.classList.remove('active');
+    oreRow.style.display = 'none';
+    lavRow.style.display = 'none';
+    delete card.dataset.ore;
+  }
+  aggiornaOreTotali();
+}
+
+function cambiaOre(cardId, delta) {
+  const card = document.querySelector(`.cant-card[data-card-id="${cardId}"]`);
+  if (!card) return;
+  let ore = parseFloat(card.dataset.ore || 0.5);
+  ore = Math.max(0.5, Math.min(16, +(ore + delta).toFixed(1)));
+  card.dataset.ore = ore;
+  const inp = document.getElementById(`oreinput-${cardId}`);
+  if (inp) inp.value = ore;
+  aggiornaOreTotali();
+}
+
+function setOreDirectly(cardId, val) {
+  const card = document.querySelector(`.cant-card[data-card-id="${cardId}"]`);
+  if (!card) return;
+  let ore = parseFloat(val);
+  if (isNaN(ore) || ore < 0.5) ore = 0.5;
+  if (ore > 16) ore = 16;
+  ore = Math.round(ore * 2) / 2; // arrotonda a 0.5
+  card.dataset.ore = ore;
+  aggiornaOreTotali();
+}
+
+function aggiornaOreTotali() {
+  let tot = 0;
+  document.querySelectorAll('.cant-card.active').forEach(card => { tot += parseFloat(card.dataset.ore || 0); });
+  const bar = document.getElementById('ore-totali-bar');
+  if (tot > 0) { bar.style.display = 'flex'; document.getElementById('ore-totali-val').textContent = tot + 'h'; }
+  else bar.style.display = 'none';
+}
+
+function onTrasfertaChange() {
+  const on = document.getElementById('trasferta-toggle').checked;
+  document.getElementById('trasferta-details').style.display = on ? 'flex' : 'none';
+  if (on) buildTrasfertaList();
+}
+
+function buildTrasfertaList() {
+  const list = document.getElementById('trasferta-cantieri-list');
+  const attivi = cantieriCache.filter(c => (c.status||'').toLowerCase().includes('attiv'));
+  // Cantieri chiusi selezionati dall'utente nella sezione sopra
+  const tuttiChiusi = cantieriCache.filter(c => !(c.status||'').toLowerCase().includes('attiv') && c.nome);
+  const chiusiSelezionati = tuttiChiusi.filter((_, i) => {
+    const card = document.querySelector(`.cant-card[data-card-id="chiuso-${i}"]`);
+    return card && card.classList.contains('active');
+  });
+  const options = [
+    ...attivi.map(c => c.codice ? `${c.codice} — ${c.nome}` : c.nome),
+    ...chiusiSelezionati.map(c => c.codice ? `${c.codice} — ${c.nome}` : c.nome),
+    'Sopralluogo/Preventivi', 'Altro'
+  ];
+  list.innerHTML = '';
+  options.forEach(label => {
+    const item = document.createElement('label');
+    item.className = 'trasferta-check-item';
+    item.innerHTML = `<input type="checkbox" value="${label}"><span>${label}</span>`;
+    item.querySelector('input').addEventListener('change', function() {
+      item.classList.toggle('checked', this.checked);
+    });
+    list.appendChild(item);
+  });
+}
+
+function getForm() {
+  const attivi = cantieriCache.filter(c => (c.status||'').toLowerCase().includes('attiv'));
+  const chiusi = cantieriCache.filter(c => !(c.status||'').toLowerCase().includes('attiv') && c.nome);
+  const cantieri = [];
+  document.querySelectorAll('.cant-card.active').forEach(card => {
+    const cardId = card.dataset.cardId;
+    const ore = parseFloat(card.dataset.ore || 0);
+    const lav = document.getElementById(`lav-${cardId}`)?.value || '';
+    if (cardId === 'sopralluogo') {
+      cantieri.push({ nome: 'Sopralluogo/Preventivi', codice: 'S/P', ore, lav, tipo: 'sopralluogo' });
+    } else if (cardId.startsWith('cantiere-')) {
+      const c = attivi[parseInt(cardId.split('-')[1])];
+      if (c) cantieri.push({ nome: c.nome, codice: c.codice, ore, lav, tipo: 'attivo' });
+    } else if (cardId.startsWith('chiuso-')) {
+      const c = chiusi[parseInt(cardId.split('-')[1])];
+      if (c) cantieri.push({ nome: c.nome, codice: c.codice, ore, lav, tipo: 'chiuso' });
+    }
+  });
+  const trasferta = document.getElementById('trasferta-toggle').checked;
+  const trasfertaCantieri = trasferta
+    ? Array.from(document.querySelectorAll('#trasferta-cantieri-list input:checked')).map(el => el.value)
+    : [];
+  return {
+    tecnico:          document.getElementById('tecnico').value,
+    data:             document.getElementById('data').value,
+    cantieri,
+    oreTotali:        cantieri.reduce((s, c) => s + c.ore, 0),
+    trasferta,
+    trasfertaCantieri,
+    trasfertaKm:      trasferta ? (document.getElementById('trasferta-km').value || '') : '',
+    note:             document.getElementById('note').value
+  };
+}
+
+async function salvaRapportino() {
+  const f = getForm();
+  if (!f.data) { showErr('Inserisci la data'); return; }
+  if (f.cantieri.length === 0 && !f.note) { showErr('Seleziona almeno un cantiere o aggiungi una nota'); return; }
+  const btn = document.getElementById('btn-salva');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Salvataggio...';
+  const warnings = [];
+  try {
+    const pdfBlob = await generaPDFBlob(f);
+    const dataStr    = f.data.replace(/-/g, '');
+    const tecnicoStr = f.tecnico.replace(/\s+/g, '_');
+    const fname      = `Tecnico_${tecnicoStr}_${dataStr}.pdf`;
+    const folderPath = `/${LISTS.rapportini}/${tecnicoStr}/${f.data.substring(0,4)}`;
+    if (driveId) {
+      try { await gPut(`${G}/drives/${driveId}/root:${folderPath}/${fname}:/content`, pdfBlob); }
+      catch(e) { console.warn('Upload PDF fallito:', e.message); warnings.push('upload PDF su OneDrive fallito (' + e.message + ')'); }
+    }
+    await salvaSharePoint(f);
+    if (driveId) {
+      try { await aggiornaExcel(f); }
+      catch(e) { console.warn('Aggiornamento Excel fallito:', e.message); warnings.push('aggiornamento Excel fallito: ' + e.message); }
+    }
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+    URL.revokeObjectURL(url);
+    btn.innerHTML = '✓ Salvato!';
+    btn.style.background = 'linear-gradient(135deg,#4caf7d,#2e7d52)';
+    if (warnings.length) {
+      showErr('⚠️ Rapportino salvato su SharePoint, ma: ' + warnings.join('; '));
+    }
+    setTimeout(() => { btn.disabled = false; btn.style.background = ''; btn.innerHTML = '💾 Salva Rapportino'; }, 3000);
+  } catch(e) {
+    showErr('Errore salvataggio: ' + e.message);
+    btn.disabled = false; btn.innerHTML = '💾 Salva Rapportino';
+  }
+}
+
+let rapportiniColMap = null;
+async function getRapportiniColMap() {
+  if (rapportiniColMap) return rapportiniColMap;
+  try {
+    const data = await gGet(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.rapportini)}/columns?$select=name,displayName&$top=50`);
+    rapportiniColMap = {};
+    (data.value || []).forEach(c => {
+      rapportiniColMap[c.displayName.toLowerCase()] = c.name;
+      rapportiniColMap[c.name.toLowerCase()]        = c.name;
+    });
+  } catch(e) { console.warn('ColMap fallito:', e.message); rapportiniColMap = {}; }
+  return rapportiniColMap;
+}
+
+async function salvaSharePoint(f) {
+  const colMap = await getRapportiniColMap();
+  const cantStr      = f.cantieri.map(c => `${c.nome} (${c.ore}h)`).join(', ');
+  const trasfertaStr = f.trasfertaCantieri.length > 0 ? f.trasfertaCantieri.join(', ') : '';
+
+  function addField(names, val) {
+    if (!val && val !== 0) return;
+    for (const n of names) {
+      const key = colMap[n.toLowerCase()];
+      if (key) { fields[key] = String(val); return; }
+    }
+    fields[names[0]] = String(val);
+  }
+
+  const fields = {};
+  addField(['Tecnico', 'Title'],              f.tecnico);
+  addField(['Data', 'DataGiornata'],           f.data);
+  addField(['Cantieri', 'CantiereLavorati'],   cantStr);
+  addField(['OreTotali', 'Ore'],               String(f.oreTotali));
+  addField(['Trasferta'],                      f.trasferta ? 'Sì' : 'No');
+  addField(['TrasfertaCantieri', 'TrasfertaCantiere'], trasfertaStr);
+  addField(['TrasfertaKm', 'Km'],              f.trasfertaKm);
+  addField(['Note', 'NoteGenerali'],           f.note);
+
+  await gPost(`${G}/sites/${siteId}/lists/${encodeURIComponent(LISTS.rapportini)}/items`, { fields });
+}
+
+function getExcelPath(tecnico) {
+  const t = tecnico.replace(/\s+/g, '_');
+  return `/${LISTS.rapportini}/${t}/Rapportini_${t}.xlsx`;
+}
+// File riepilogativo generale con tutti i tecnici/cantieri/trasferte — per collegamento dashboard
+const EXCEL_PATH_GENERALE = `/${LISTS.rapportini}/Rapportini_Tecnici_GENERALE.xlsx`;
+const EXCEL_SHEET_NAME = 'Rapportini Tecnici';
+const EXCEL_HEADERS = ['Data','Tecnico','Cantiere','Codice','Ore','Tipo','Attività svolta','Trasferta','Destinazioni trasferta','Km','Note'];
+
+async function excelFileExists(path) {
+  try {
+    await gGet(`${G}/drives/${driveId}/root:${path}`);
+    return true;
+  } catch (e) {
+    if (/^404/.test(e.message)) return false;
+    throw e;
+  }
+}
+
+async function creaExcelVuoto(path) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS]);
+  XLSX.utils.book_append_sheet(wb, ws, EXCEL_SHEET_NAME);
+  const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob  = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  await gPut(`${G}/drives/${driveId}/root:${path}:/content`, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+// Append tramite Graph API workbook session (usedRange + PATCH range) invece di download+overwrite
+// del file intero: evita che due scritture concorrenti (es. due tecnici che salvano nello stesso
+// momento sul file GENERALE condiviso) si sovrascrivano a vicenda perdendo righe.
+async function appendRigheToExcelFile(path, righe) {
+  if (!(await excelFileExists(path))) {
+    await creaExcelVuoto(path);
+  }
+  const base = `${G}/drives/${driveId}/root:${path}:/workbook/worksheets/${encodeURIComponent(EXCEL_SHEET_NAME)}`;
+  const used = await gGet(`${base}/usedRange(valuesOnly=true)`);
+  const nextRow = (used && used.rowCount ? used.rowCount : 0) + 1;
+  const lastCol = String.fromCharCode('A'.charCodeAt(0) + EXCEL_HEADERS.length - 1);
+  const address = `A${nextRow}:${lastCol}${nextRow + righe.length - 1}`;
+  await gPatch(`${base}/range(address='${address}')`, { values: righe });
+  console.log('Excel aggiornato (workbook API):', path, '— righe aggiunte:', righe.length);
+}
+
+async function aggiornaExcel(f) {
+  const trasfertaSi   = f.trasferta ? 'Sì' : 'No';
+  const trasfertaDest = f.trasferta ? (f.trasfertaCantieri.join(', ') || 'null') : 'null';
+  const trasfertaKm   = f.trasferta ? (parseFloat(f.trasfertaKm) || 0) : 0;
+
+  // Una riga per ogni cantiere lavorato
+  // Trasferta/Km/Note solo sulla prima riga per evitare duplicati
+  const righe = f.cantieri.map((c, i) => [
+    f.data,
+    f.tecnico,
+    c.nome,
+    c.codice || '',
+    c.ore,
+    c.tipo === 'sopralluogo' ? 'Sopralluogo/Preventivi' : (c.tipo === 'chiuso' ? 'Chiuso' : 'Attivo'),
+    c.lav || '',
+    i === 0 ? trasfertaSi  : '',
+    i === 0 ? trasfertaDest : '',
+    i === 0 ? trasfertaKm  : '',
+    i === 0 ? (f.note || '') : ''
+  ]);
+
+  // Se non ci sono cantieri ma c'è solo una nota, aggiungi comunque una riga
+  if (righe.length === 0) {
+    righe.push([f.data, f.tecnico, '', '', '', '', '', trasfertaSi, trasfertaDest, trasfertaKm, f.note || '']);
+  }
+
+  // Scrive sia sul file per-tecnico che sul riepilogativo generale (dashboard).
+  // Ogni scrittura è indipendente: se una fallisce, l'errore viene riportato ma non blocca l'altra.
+  const errori = [];
+  try {
+    await appendRigheToExcelFile(getExcelPath(f.tecnico), righe);
+  } catch (e) {
+    console.error('Excel per-tecnico fallito:', e.message);
+    errori.push(`file tecnico (${e.message})`);
+  }
+  try {
+    await appendRigheToExcelFile(EXCEL_PATH_GENERALE, righe);
+  } catch (e) {
+    console.error('Excel generale fallito:', e.message);
+    errori.push(`file generale (${e.message})`);
+  }
+  if (errori.length) {
+    throw new Error(errori.join(' | '));
+  }
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+
+async function generaPDFBlob(f) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ format: 'a4', unit: 'mm' });
+  const W=210, PH=297, M=13, IW=184;
+  const BG=[255,255,255], SU=[245,245,248], S2=[235,235,240], BD=[200,200,210],
+        GO=[30,70,140], TX=[20,20,25], MU=[110,110,120];
+  let y=0;
+  const sf=(...c)=>doc.setFillColor(...c), sd=(...c)=>doc.setDrawColor(...c), st=(...c)=>doc.setTextColor(...c);
+
+  function pageBreak(need) {
+    if (y+need>PH-18) { doc.addPage(); sf(...BG); doc.rect(0,0,W,PH,'F'); y=14; }
+  }
+  function box(ly,lh,col=SU) { sf(...col); sd(...BD); doc.setLineWidth(0.18); doc.roundedRect(M,ly,IW,lh,2,2,'FD'); }
+  function secTitle(txt,ly) {
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); st(...GO);
+    doc.text(txt,M+4,ly+7); sd(...BD); doc.setLineWidth(0.15);
+    doc.line(M+4,ly+9.5,M+IW-4,ly+9.5); return ly+13;
+  }
+  function chip(cx,cy,cw,ch,lbl,val) {
+    sf(...S2); sd(...BD); doc.setLineWidth(0.12); doc.roundedRect(cx,cy,cw,ch,1.5,1.5,'FD');
+    doc.setFontSize(6); doc.setFont('helvetica','bold'); st(...GO); doc.text(lbl.toUpperCase(),cx+3,cy+5.5);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(doc.splitTextToSize(String(val||'—'),cw-5)[0],cx+3,cy+11.5);
+  }
+
+  sf(...BG); doc.rect(0,0,W,PH,'F');
+
+  // HEADER
+  doc.setFontSize(21); doc.setFont('helvetica','bold'); st(...GO);
+  doc.text('VISION BUILD',M+4,22);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); st(...MU);
+  doc.text('RAPPORTINO TECNICO GIORNALIERO',M+4,29);
+  sd(...GO); doc.setLineWidth(0.35); doc.line(M+4,32,W-M,32);
+  doc.setFontSize(8); st(...TX);
+  doc.text(`Data: ${fmtDate(f.data)}`,M+4,38);
+  doc.text(`Tecnico: ${f.tecnico}`,M+4,45);
+  y=56;
+
+  // CANTIERI + SOPRALLUOGO
+  if (f.cantieri.length>0) {
+    const ch=20+f.cantieri.length*14; box(y,ch);
+    let iy=secTitle('CANTIERI / ATTIVITÀ',y);
+    f.cantieri.forEach(c=>{
+      const hw=(IW-12)/2;
+      const colLabel = c.tipo==='sopralluogo' ? 'Sopr./Preventivi' : (c.tipo==='chiuso' ? 'Cantiere (chiuso)' : 'Cantiere');
+      const label = c.tipo==='sopralluogo' ? 'Sopralluogo/Preventivi' : `${c.codice?c.codice+' — ':''}${c.nome}`;
+      chip(M+4,iy,hw,12,colLabel,label);
+      chip(M+4+hw+4,iy,hw,12,'Ore lavorate',c.ore+'h'); iy+=14;
+    });
+    y+=ch+5;
+  }
+
+  // ORE TOTALI
+  pageBreak(18);
+  sf(...[30,70,140]); sd(...GO); doc.setLineWidth(0.3);
+  doc.roundedRect(M,y,IW,14,2,2,'F');
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold'); st(255,255,255);
+  doc.text(`Totale ore giornata: ${f.oreTotali}h`,M+6,y+9.5); y+=19;
+
+  // ATTIVITÀ
+  const conLav=f.cantieri.filter(c=>c.lav);
+  if (conLav.length>0) {
+    pageBreak(30); const lavH=16+conLav.length*12; box(y,lavH);
+    let iy=secTitle('ATTIVITÀ SVOLTE',y);
+    conLav.forEach(c=>{
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); st(...GO);
+      const etichetta = c.tipo==='sopralluogo' ? 'Sopralluogo/Preventivi' : c.nome;
+      doc.text(`${etichetta}:`,M+4,iy+4);
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); st(...TX);
+      doc.text(doc.splitTextToSize(c.lav,IW-50)[0],M+40,iy+4); iy+=12;
+    });
+    y+=lavH+5;
+  }
+
+  // TRASFERTA
+  if (f.trasferta) {
+    const dest = f.trasfertaCantieri.length>0 ? f.trasfertaCantieri.join(', ') : '—';
+    const tH=20+14+14;
+    pageBreak(tH+5); box(y,tH);
+    let iy=secTitle('TRASFERTA',y);
+    chip(M+4,iy,IW-8,12,'Destinazioni / Cantieri',dest); iy+=14;
+    chip(M+4,iy,IW-8,12,'Km percorsi',f.trasfertaKm?f.trasfertaKm+' km':'—');
+    y+=tH+5;
+  }
+
+  // NOTE
+  if (f.note) {
+    const nl=doc.splitTextToSize(f.note,IW-10), nH=16+nl.length*4.8;
+    pageBreak(nH+5); box(y,nH);
+    let ny=secTitle('NOTE GENERALI',y);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); st(...TX);
+    doc.text(nl,M+4,ny); y+=nH+5;
+  }
+
+  // FOOTER
+  const nPages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=nPages;i++){
+    doc.setPage(i);
+    sf(...BG); doc.rect(0,PH-14,W,14,'F');
+    sd(...BD); doc.setLineWidth(0.2); doc.line(M,PH-14,W-M,PH-14);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); st(...MU);
+    doc.text('Vision Build Srls',M,PH-5);
+    doc.text('RAPPORTINO TECNICO',W/2,PH-5,{align:'center'});
+    doc.text(`${f.data.split('-').reverse().join('/')}  ·  Pag. ${i}/${nPages}`,W-M,PH-5,{align:'right'});
+  }
+  return doc.output('blob');
+}
+</script>
+</body>
+</html>
