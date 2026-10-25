@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vision Build — Costi</title>
+<script>
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+// Fallback a più CDN: alcdn.msauth.net a volte è bloccato da adblocker/estensioni privacy
+window._msalReady = (async () => {
+  try { await loadScript('https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js'); return; } catch(e) {}
+  await loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js');
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600&display=swap');
+:root{--bg:#0c0c0c;--surface:#141414;--surface2:#1c1c1c;--border:#2a2a2a;--text:#f0ede8;--text2:#aaa;--text3:#666;--accent:#c8a96e;--accent2:#e0c48a;--green:#4caf7d;--yellow:#e8b84b;--red:#e05c5c;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;padding-bottom:60px}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 24px;position:sticky;top:0;z-index:50}
+.topbar h1{font-family:'Syne',sans-serif;font-size:20px;font-weight:800}
+.topbar h1 span{color:var(--accent)}
+.topbar .sub{font-size:12px;color:var(--text3);margin-top:2px}
+.btn{background:var(--accent);color:#000;border:0;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;font-family:inherit;height:42px}
+.btn.secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn.secondary:hover{border-color:var(--accent);color:var(--text)}
+.btn:disabled{opacity:.5;cursor:default}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 18px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.tab{padding:9px 16px;border-radius:30px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-size:14px}
+.tab.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;white-space:nowrap;min-height:15px}
+select,input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;height:42px;box-sizing:border-box;font-family:inherit;width:100%}
+.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end;margin-bottom:10px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.row>div{min-width:200px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card .l{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.card .v{font-size:24px;font-weight:700;margin-top:6px}
+.card .s{font-size:12px;color:var(--text2);margin-top:4px}
+.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;overflow-x:auto}
+.panel h3{font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.ex{display:flex;gap:6px}
+.ex button{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+.ex button:hover{border-color:var(--accent);color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2);overflow-wrap:anywhere}
+td .x{cursor:pointer;color:var(--text3);border:0;background:none;font-size:15px}
+td .x:hover{color:var(--red)}
+.note{font-size:12px;color:var(--text3);margin-top:10px}
+.hidden{display:none!important}
+.banner{background:rgba(232,184,75,.12);border:1px solid var(--yellow);color:var(--yellow);padding:12px 14px;border-radius:var(--radius);margin-bottom:16px;font-size:13px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-overlay.active{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;max-width:420px;text-align:center}
+.modal-box h3{margin-bottom:10px}
+/* viste Scheda cantiere / Incidenza */
+.table-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.table-inner{overflow-x:auto}
+/* ===== Riepilogo Home, Scheda cantiere, Incidenza €/ora ===== */
+.vb-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:16px; }
+.vb-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
+.vb-card .l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin-bottom:6px; }
+.vb-card .v { font-size:24px; font-weight:700; color:var(--text); }
+.vb-card .s { font-size:12px; color:var(--text2); margin-top:4px; overflow-wrap:anywhere; }
+.vb-card .go { font-size:12px; color:var(--accent); margin-top:8px; }
+.vb-card.alert { border-color:var(--red); }
+.vb-click { cursor:pointer; transition:border-color .15s, transform .15s; }
+.vb-click:hover { border-color:var(--accent); transform:translateY(-2px); }
+.vb-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px; }
+.vb-h3 { font-size:15px; margin:0 0 4px; color:var(--text); }
+.vb-h4 { font-size:14px; margin:12px 0 8px; color:var(--text); }
+.vb-note { font-size:13px; color:var(--text2); padding:8px 0; }
+.vb-chip { display:inline-block; background:rgba(224,92,92,.14); color:var(--red); border-radius:6px; padding:2px 8px; margin:2px 4px 2px 0; font-size:12px; white-space:nowrap; }
+.vb-chip.ok { background:rgba(76,175,125,.14); color:var(--green); }
+.vb-bar { height:6px; background:var(--surface2); border-radius:4px; margin-top:4px; overflow:hidden; }
+.vb-bar i { display:block; height:100%; background:var(--accent); border-radius:4px; }
+.vb-badge { border-radius:6px; padding:2px 8px; font-size:12px; white-space:nowrap; }
+.vb-badge.ok { background:rgba(76,175,125,.15); color:var(--green); }
+.vb-badge.wait { background:rgba(224,92,92,.15); color:var(--red); }
+.vb-badge.est { background:rgba(232,184,75,.15); color:var(--yellow); }
+.vb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.vb-tab { background:var(--surface); color:var(--text2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:14px; font-family:inherit; }
+.vb-tab.active { border-color:var(--accent); color:var(--accent2); }
+.vb-grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+.vb-sec-head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.vb-mini { background:var(--surface2); color:var(--text2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; font-family:inherit; }
+.vb-mini:hover { border-color:var(--accent); color:var(--accent2); }
+.vb-go { cursor:pointer; }
+.vb-go:hover { filter:brightness(1.3); }
+.vb-x { cursor:pointer; margin-left:4px; padding:0 3px; border-radius:4px; }
+.vb-x:hover { background:rgba(255,255,255,.18); }
+.vb-tl { font-size:13px; color:var(--text2); line-height:1.7; max-height:300px; overflow:auto; }
+
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c1c1c;border:1px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;z-index:300;max-width:90%;text-align:center;display:none}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="login-gate">
+  <div class="modal-box">
+    <h3>Accesso a Microsoft 365 richiesto</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:18px;">Per leggere e salvare i costi su SharePoint serve accedere con il tuo account Microsoft. Il login parte solo con un click (i browser bloccano i popup automatici).</p>
+    <button class="btn" id="login-gate-btn" onclick="onClickConnetti()">Connetti a Microsoft 365</button>
+    <div id="login-gate-error" style="color:var(--red);font-size:12px;margin-top:12px;"></div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <h1>VISION <span>BUILD</span> — Costi</h1>
+      <div class="sub">Costi di cantiere e costi generali — alimentano margini e €/ora in Estrazione Riepilogo Rapportini <span id="stato-sync" style="margin-left:8px;"></span></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn secondary" onclick="caricaTutto()">↻ Ricarica</button>
+      <a href="https://visionbuildrapportini.github.io/visionbuild-cantieri/VisionBuild_Rapportini_COMPLETE.html" class="btn secondary" style="text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap;">← Torna a Home</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="banner-liste" class="banner hidden"></div>
+
+  <div class="panel" id="panel-nuovo"><div class="ph"><h3>Nuovo costo</h3></div>
+    <div class="fc">
+      <div><label>A chi va imputato</label><select id="cs-imput" onchange="aggiornaForm()"><option value="C">Un cantiere specifico</option><option value="G">Generale (spalmato sul fatturato)</option></select></div>
+      <div id="w-cantiere"><label>Cantiere</label><select id="cs-cantiere"></select></div>
+      <div id="w-data"><label>Data</label><input type="date" id="cs-data"></div>
+      <div id="w-dal" class="hidden"><label>Competenza dal</label><input type="date" id="gn-dal"></div>
+      <div id="w-al" class="hidden"><label>Competenza al</label><input type="date" id="gn-al"></div>
+      <div><label>Descrizione</label><input type="text" id="cs-desc" placeholder="es. Noleggio autogru / Commercialista 2026"></div>
+      <div><label>Categoria</label><select id="cs-cat"></select></div>
+      <div><label>Importo €</label><input type="number" id="cs-imp" step="0.01" min="0" placeholder="0,00"></div>
+      <div><button class="btn" id="btn-aggiungi" style="width:100%" onclick="aggiungiVoce()">+ Aggiungi costo</button></div>
+    </div>
+    <div class="note" id="nota-imput">Il costo viene attribuito interamente al cantiere scelto.</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-p="cant" onclick="showCosti('cant')">🏗️ Costi cantiere</div>
+    <div class="tab" data-p="gen" onclick="showCosti('gen')">🏢 Costi generali</div>
+    <div class="tab" data-p="riep" onclick="showCosti('riep')">📈 Riepilogo</div>
+    <div class="tab" data-p="prev" onclick="showCosti('prev')">🔍 Ore preventivo</div>
+    <div class="tab" data-p="scheda" onclick="showCosti('scheda')">🏗️ Scheda cantiere</div>
+    <div class="tab" data-p="incidenza" onclick="showCosti('incidenza')">⏱️ Incidenza €/ora</div>
+  </div>
+
+  <div id="pc-cant">
+    <div class="panel"><div class="ph"><h3>Elenco costi di cantiere</h3><span class="ex"><button onclick="esportaPagina('p_costi','xlsx')">⬇️ Excel</button><button onclick="esportaPagina('p_costi','pdf')">⬇️ PDF</button></span></div>
+      <div class="row"><div><label>Cantiere</label><select id="pc-fc" onchange="renderPaginaCosti()"></select></div><div><label>Categoria</label><select id="pc-fk" onchange="renderPaginaCosti()"></select></div></div>
+      <div class="cards" id="pc-sum" style="margin-bottom:12px"></div>
+      <div id="pc-costi"></div></div>
+  </div>
+
+  <div id="pc-gen" class="hidden">
+    <div class="panel"><div class="ph"><h3>Elenco costi generali e ripartizione</h3><span class="ex"><button onclick="esportaPagina('p_gen','xlsx')">⬇️ Excel</button><button onclick="esportaPagina('p_gen','pdf')">⬇️ PDF</button></span></div><div id="pc-gen-tab"></div>
+      <div class="note">Ogni costo generale viene diviso tra i cantieri in proporzione al fatturato emesso nel suo periodo di competenza (data fattura). Senza fatturato nel periodo resta "non allocato" e non entra nei margini.</div></div>
+  </div>
+
+  <div id="pc-prev" class="hidden">
+    <div class="panel"><div class="ph"><h3>Ore di sopralluogo/preventivo da assegnare ai cantieri</h3></div>
+      <div class="note" style="margin-bottom:12px">Quando un preventivo diventa un cantiere, spunta le ore di quel lavoro (guarda la descrizione/luogo) e assegnale al cantiere: da quel momento contano come ore di preventivo di quel cantiere (restano distinte dalle ore di cantiere) e escono dai Sopralluoghi/Preventivi generici. "Non considerata" lascia l'ora tra i sopralluoghi generici e la toglie da questo elenco.</div>
+      <div id="prev-banner" class="banner hidden"></div>
+      <div class="row">
+        <div><label>Mostra</label><select id="prev-stato" onchange="renderPrev()"><option value="D">Da assegnare</option><option value="A">Assegnate a un cantiere</option><option value="N">Non considerate</option><option value="T">Tutte</option></select></div>
+        <div><label>Tecnico</label><select id="prev-tec" onchange="renderPrev()"></select></div>
+        <div><label>Descrizione contiene</label><input type="text" id="prev-q" oninput="renderPrev()" placeholder="es. Rossi, via Roma…"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Cantiere a cui assegnare le righe spuntate</label><select id="prev-cant"></select></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <button class="btn" onclick="prevAzione('A')">✔ Assegna al cantiere</button>
+          <button class="btn secondary" onclick="prevAzione('N')">Non considerare</button>
+          <button class="btn secondary" onclick="prevAzione('R')">↩ Rimetti in sopralluoghi</button>
+        </div>
+      </div>
+      <div class="note" id="prev-sel" style="margin:10px 0"></div>
+      <div id="prev-tab"></div></div>
+  </div>
+
+  <div id="pc-riep" class="hidden">
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <button class="btn secondary" onclick="esportaRiepilogo('xlsx')">📥 Excel (tutto il riepilogo)</button>
+      <button class="btn secondary" onclick="esportaRiepilogo('pdf')">📄 PDF (tutto il riepilogo)</button>
+    </div>
+    <div class="cards" id="pr-cards"></div>
+    <div class="grid2">
+      <div class="panel"><div class="ph"><h3>Per categoria</h3><span class="ex"><button onclick="esportaPagina('p_cat','xlsx')">⬇️ Excel</button><button onclick="esportaPagina('p_cat','pdf')">⬇️ PDF</button></span></div><div id="pr-cat"></div></div>
+      <div class="panel"><div class="ph"><h3>Costi di cantiere per mese</h3><span class="ex"><button onclick="esportaPagina('p_mese','xlsx')">⬇️ Excel</button><button onclick="esportaPagina('p_mese','pdf')">⬇️ PDF</button></span></div><div id="pr-mese"></div></div>
+    </div>
+    <div class="panel"><div class="ph"><h3>Per cantiere: ore, costi, MOL e % utile</h3><span class="ex"><button onclick="esportaPagina('p_riep','xlsx')">⬇️ Excel</button><button onclick="esportaPagina('p_riep','pdf')">⬇️ PDF</button></span></div><div id="pr-cant"></div></div>
+  </div>
+</div>
+
+<!-- SCHEDA CANTIERE + INCIDENZA €/ORA -->
+<div class="wrap hidden" id="pc-est" style="padding-top:0">
+  <div class="panel">
+    <div class="fc">
+      <div><label>Cantiere</label><select id="vb-sel"></select></div>
+      <div><label>Dal</label><input type="date" id="vb-dal"></div>
+      <div><label>Al</label><input type="date" id="vb-al"></div>
+    </div>
+    <div class="note">L'incidenza €/ora usa sempre tutte le ore dei tecnici e tutto il fatturato del cantiere, indipendentemente da Dal/Al. Salvataggi in OneDrive › 05_RAPPORTINI CANTIERI › Estrazione.</div>
+    <div id="vb-stato" class="note"></div>
+  </div>
+
+      <div id="vb-v-scheda">
+        <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+          <button type="button" class="btn secondary" onclick="EST.esportaTutto('scheda','xlsx')">📥 Excel (tutta la pagina)</button>
+          <button type="button" class="btn secondary" onclick="EST.esportaTutto('scheda','pdf')">📄 PDF (tutta la pagina)</button>
+        </div>
+        <div class="vb-cards" id="vb-sc-cards"></div>
+        <div class="vb-grid2">
+          <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">👷 Ore per tecnico</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('tecnici','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('tecnici','pdf')">PDF</button></span></div><div id="vb-sc-tecnici"></div></div>
+          <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">🧑‍🔧 Ore subappaltatori</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('sub','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('sub','pdf')">PDF</button></span></div><div id="vb-sc-sub"></div></div>
+        </div>
+        <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">💸 Costi di cantiere</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('costi','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('costi','pdf')">PDF</button></span></div><div id="vb-sc-costi"></div></div>
+        <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">💰 Fatture e compensi</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('compensi','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('compensi','pdf')">PDF</button></span></div><div id="vb-sc-compensi"></div></div>
+        <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">📋 Rapportini</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('rapportini','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('rapportini','pdf')">PDF</button></span></div><div id="vb-sc-rapp"></div></div>
+        <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">🕑 Cronologia</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('cronologia','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('cronologia','pdf')">PDF</button></span></div><div id="vb-sc-tl" class="vb-tl"></div></div>
+      </div>
+
+      <div id="vb-v-incidenza" style="display:none;">
+        <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+          <button type="button" class="btn secondary" onclick="EST.esportaTutto('incidenza','xlsx')">📥 Excel (tutta la pagina)</button>
+          <button type="button" class="btn secondary" onclick="EST.esportaTutto('incidenza','pdf')">📄 PDF (tutta la pagina)</button>
+        </div>
+        <div class="vb-cards" id="vb-in-cards"></div>
+        <div class="vb-box"><div class="vb-sec-head"><h3 class="vb-h3">⏱️ Incidenza €/ora per cantiere</h3><span><button type="button" class="vb-mini" onclick="EST.esporta('incidenza','xlsx')">Excel</button> <button type="button" class="vb-mini" onclick="EST.esporta('incidenza','pdf')">PDF</button></span></div><div id="vb-in-tab"></div></div>
+      </div>
+</div>
+<div id="toast"></div>
+
+<script>
+
+// ============================================================
+// CONFIGURAZIONE — stessi valori usati nelle altre pagine della suite
+// ============================================================
+const GRAPH_CONFIG = {
+  clientId: '28d34213-6034-4b0a-b5cc-8201a925a0f9',
+  tenantId: '8f61e0b7-e348-430b-8c32-203f296d368d',
+  scopes: ['Sites.ReadWrite.All', 'Files.ReadWrite.All', 'User.Read'],
+  sharepointHostname: 'visionbuildsrls.sharepoint.com',
+  sharepointSitePath: '/sites/RapportiniCantieri',
+  oneDriveUserPrincipalName: 'info@visionbuild.it',
+};
+const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+const RAPPORTINI_COPIE_BASE_FOLDER = '/VISION BUILD srls/05_RAPPORTINI CANTIERI';
+const LISTA_ANAGRAFICA = '01_ANAGRAFICA_CANTIERI';
+const LISTA_COMPENSI = '07_COMPENSI';
+// Liste dei costi. Colonne: Title = descrizione.
+//  09_Costi_Cantiere: Data (data), Cantiere (testo), Categoria (testo), Importo (numero)
+//  10_Costi_Generali: Categoria (testo), Importo (numero), CompetenzaDal (data), CompetenzaAl (data)
+const LISTE = {
+  c: { nome: '09_Costi_Cantiere', colonne: [
+    { name: 'Data', dateTime: { displayAs: 'default', format: 'dateOnly' } },
+    { name: 'Cantiere', text: {} },
+    { name: 'Categoria', text: {} },
+    { name: 'Importo', number: { decimalPlaces: 'two' } } ] },
+  g: { nome: '10_Costi_Generali', colonne: [
+    { name: 'Categoria', text: {} },
+    { name: 'Importo', number: { decimalPlaces: 'two' } },
+    { name: 'CompetenzaDal', dateTime: { displayAs: 'default', format: 'dateOnly' } },
+    { name: 'CompetenzaAl', dateTime: { displayAs: 'default', format: 'dateOnly' } } ] },
+};
+// Stesso elenco per costi di cantiere e costi generali
+const CATEGORIE = ['Trasporti', 'Noleggi attrezzature', 'Acquisto attrezzature', 'Licenze programmi', 'Commercialista', 'Tasse', 'Pasti', 'Altro'];
+
+// ============================================================
+// AUTENTICAZIONE MSAL + GRAPH (stesso pattern delle altre pagine)
+// ============================================================
+let msalInstance = null, msalAccount = null, msalInitPromise = null, pendingLoginResolvers = [];
+async function initMsal() {
+  if (msalInstance) return msalInstance;
+  if (msalInitPromise) return msalInitPromise;
+  msalInitPromise = (async () => {
+    try { await window._msalReady; } catch (e) {}
+    if (typeof msal === 'undefined') { console.warn('MSAL non caricato'); return null; }
+    msalInstance = new msal.PublicClientApplication({
+      auth: { clientId: GRAPH_CONFIG.clientId, authority: `https://login.microsoftonline.com/${GRAPH_CONFIG.tenantId}`, redirectUri: window.location.href.split('#')[0].split('?')[0] },
+      cache: { cacheLocation: 'localStorage' },
+    });
+    msalAccount = msalInstance.getAllAccounts()[0] || null;
+    return msalInstance;
+  })();
+  return msalInitPromise;
+}
+async function getAccessTokenSilent() {
+  const instance = await initMsal();
+  if (!instance) return null;
+  if (!msalAccount) msalAccount = instance.getAllAccounts()[0] || null;
+  if (!msalAccount) return null;
+  try { const r = await instance.acquireTokenSilent({ scopes: GRAPH_CONFIG.scopes, account: msalAccount }); msalAccount = r.account; return r.accessToken; }
+  catch (err) { return null; }
+}
+function waitForManualLogin() {
+  document.getElementById('login-gate').classList.add('active');
+  return new Promise((resolve, reject) => pendingLoginResolvers.push({ resolve, reject }));
+}
+// Il popup deve partire in modo SINCRONO dentro il click (Safari)
+function onClickConnetti() {
+  const btn = document.getElementById('login-gate-btn'), errEl = document.getElementById('login-gate-error');
+  errEl.textContent = '';
+  if (!msalInstance) { errEl.textContent = 'Connessione a Microsoft non ancora pronta, riprova tra un istante.'; return; }
+  btn.disabled = true; btn.textContent = 'Apertura login…';
+  msalInstance.loginPopup({ scopes: GRAPH_CONFIG.scopes }).then(result => {
+    msalAccount = result.account;
+    document.getElementById('login-gate').classList.remove('active');
+    pendingLoginResolvers.splice(0).forEach(r => r.resolve(result.accessToken));
+  }).catch(err => {
+    errEl.textContent = 'Login fallito: ' + err.message;
+    pendingLoginResolvers.splice(0).forEach(r => r.reject(err));
+  }).finally(() => { btn.disabled = false; btn.textContent = 'Connetti a Microsoft 365'; });
+}
+async function getAccessToken() { return (await getAccessTokenSilent()) || waitForManualLogin(); }
+async function graphFetch(path, options = {}) {
+  const token = await getAccessToken();
+  const url = path.startsWith('http') ? path : `${GRAPH_BASE}${path}`;
+  const res = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  if (!res.ok) { const errBody = await res.text(); throw new Error(`Graph API ${res.status} [${options.method || 'GET'} ${path}]: ${errBody}`); }
+  if (res.status === 204 || res.status === 202) return null;
+  return res.json();
+}
+async function graphUploadBlob(path, blob) {
+  const token = await getAccessToken();
+  const res = await fetch(path.startsWith('http') ? path : `${GRAPH_BASE}${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': blob.type || 'application/octet-stream' }, body: blob });
+  if (!res.ok) { const errBody = await res.text(); throw new Error(`Graph API ${res.status} [PUT ${path}]: ${errBody}`); }
+  return res.json();
+}
+async function caricaCopiaRapportino(sottocartella, codiceCartella, filename, blob) {
+  const upn = encodeURIComponent(GRAPH_CONFIG.oneDriveUserPrincipalName);
+  const folderPath = `${RAPPORTINI_COPIE_BASE_FOLDER}/${sottocartella}/${codiceCartella || 'Tutti i Cantieri'}`;
+  await graphUploadBlob(`/users/${upn}/drive/root:${encodeURIComponent(folderPath).replace(/%2F/g, '/')}/${encodeURIComponent(filename)}:/content`, blob);
+}
+let cachedSiteId = null;
+async function getSiteId() {
+  if (cachedSiteId) return cachedSiteId;
+  cachedSiteId = (await graphFetch(`/sites/${GRAPH_CONFIG.sharepointHostname}:${GRAPH_CONFIG.sharepointSitePath}`)).id;
+  return cachedSiteId;
+}
+const listaIdCache = {};
+async function listIdByName(nome) {
+  if (listaIdCache[nome]) return listaIdCache[nome];
+  const siteId = await getSiteId();
+  const data = await graphFetch(`/sites/${siteId}/lists?$filter=displayName eq '${encodeURIComponent(nome)}'`);
+  if (!data.value || !data.value.length) throw new Error(`Lista "${nome}" non trovata`);
+  return (listaIdCache[nome] = data.value[0].id);
+}
+async function colMapDi(listId) {
+  const siteId = await getSiteId();
+  const data = await graphFetch(`/sites/${siteId}/lists/${listId}/columns?$select=name,displayName&$top=100`);
+  const m = {};
+  (data.value || []).forEach(c => { if (c.displayName) m[c.displayName.toLowerCase()] = c.name; m[c.name.toLowerCase()] = c.name; });
+  return m;
+}
+const colDa = (m, ...cand) => { for (const c of cand) { const f = m[c.toLowerCase()]; if (f) return f; } return null; };
+async function tuttiGliItem(listId) {
+  const siteId = await getSiteId();
+  let items = [], url = `/sites/${siteId}/lists/${listId}/items?expand=fields&$top=999`;
+  while (url) {
+    const data = await graphFetch(url);
+    items = items.concat(data.value || []);
+    url = data['@odata.nextLink'] ? data['@odata.nextLink'].replace(GRAPH_BASE, '') : null;
+  }
+  return items;
+}
+
+// ============================================================
+// UTILITÀ
+// ============================================================
+const $ = id => document.getElementById(id);
+const eur = n => Number(n || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const dIT = s => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—';
+const somma = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(n) ? 0 : n; };
+const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+const oggiISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function toast(msg, ms = 4000) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms); }
+
+// ============================================================
+// DATI
+// ============================================================
+let ANAG = [];       // { nome, codice, status }
+let COMP = [];       // compensi fatturati (per ripartire i costi generali)
+let COSTI = [];      // costi di cantiere  { id, d, cant, ci, desc, cat, imp }
+let GENERALI = [];   // costi generali     { id, desc, cat, imp, dal, al }
+const LISTA_OK = { c: false, g: false };
+const SOPR = 'Sopralluoghi/Preventivi';           // "cantiere" speciale: costi e ore senza ricavo diretto
+const isSPtxt = t => /sopralluog|preventiv/i.test(t || '');
+const ciDi = t => isSPtxt(t) ? -2 : idxC(t);       // -2 = Sopralluoghi/Preventivi
+const nomeC = i => i >= 0 && ANAG[i] ? (ANAG[i].codice || ANAG[i].nome) : '—';
+const attivo = c => (c.status || '').toLowerCase().includes('attiv');
+const idxCache = new Map();
+function idxC(testo) {
+  const n = norm(testo); if (!n) return -1;
+  if (idxCache.has(n)) return idxCache.get(n);
+  let r = ANAG.findIndex(c => n === norm(c.codice) || n === norm(c.nome));
+  if (r < 0) r = ANAG.findIndex(c => { const nn = norm(c.nome); return nn.length > 3 && n.includes(nn); });
+  idxCache.set(n, r); return r;
+}
+async function leggiAnagrafica() {
+  const listId = await listIdByName(LISTA_ANAGRAFICA), m = await colMapDi(listId);
+  const cN = colDa(m, 'Nome Cantiere'), cC = colDa(m, 'Cantiere'), cS = colDa(m, 'Status Cantiere', 'Stato');
+  return (await tuttiGliItem(listId)).map(it => { const f = it.fields || {};
+    return { nome: (cN && f[cN]) || '', codice: (cC && f[cC]) || '', status: (cS && f[cS]) || '' }; }).filter(c => c.nome || c.codice);
+}
+async function leggiCompensi() {
+  const listId = await listIdByName(LISTA_COMPENSI), m = await colMapDi(listId);
+  const cC = colDa(m, 'Cantiere'), cS = colDa(m, 'Stato'), cIF = colDa(m, 'Importo Fatturato'), cDF = colDa(m, 'Data Fatturazione');
+  return (await tuttiGliItem(listId)).map(it => { const f = it.fields || {};
+    return { cantiere: (cC && f[cC]) || '', stato: (cS && f[cS]) || '', imp: num(cIF && f[cIF]), df: String((cDF && f[cDF]) || '').slice(0, 10) }; })
+    .filter(c => c.stato === 'Fatturato' && c.df);
+}
+async function leggiCosti() {
+  try {
+    const listId = await listIdByName(LISTE.c.nome), m = await colMapDi(listId);
+    const cD = colDa(m, 'Data'), cC = colDa(m, 'Cantiere'), cK = colDa(m, 'Categoria'), cI = colDa(m, 'Importo');
+    if (!cD || !cC || !cK || !cI) throw new Error('colonne mancanti');
+    LISTA_OK.c = true;
+    COSTI = (await tuttiGliItem(listId)).map(it => { const f = it.fields || {};
+      return { id: it.id, d: String(f[cD] || '').slice(0, 10), cant: f[cC] || '', ci: ciDi(f[cC] || ''), desc: f.Title || '', cat: f[cK] || '', imp: num(f[cI]) }; });
+  } catch (e) { LISTA_OK.c = false; COSTI = []; console.warn('Lista costi cantiere:', e.message); }
+  try {
+    const listId = await listIdByName(LISTE.g.nome), m = await colMapDi(listId);
+    const cK = colDa(m, 'Categoria'), cI = colDa(m, 'Importo'), cD = colDa(m, 'CompetenzaDal', 'Competenza dal'), cA = colDa(m, 'CompetenzaAl', 'Competenza al');
+    if (!cK || !cI || !cD || !cA) throw new Error('colonne mancanti');
+    LISTA_OK.g = true;
+    GENERALI = (await tuttiGliItem(listId)).map(it => { const f = it.fields || {};
+      return { id: it.id, desc: f.Title || '', cat: f[cK] || '', imp: num(f[cI]), dal: String(f[cD] || '').slice(0, 10), al: String(f[cA] || '').slice(0, 10) }; });
+  } catch (e) { LISTA_OK.g = false; GENERALI = []; console.warn('Lista costi generali:', e.message); }
+}
+async function caricaTutto() {
+  $('stato-sync').textContent = '⏳ Caricamento da SharePoint…';
+  try {
+    const [anag, comp] = await Promise.all([leggiAnagrafica(), leggiCompensi()]);
+    ANAG = anag; COMP = comp; idxCache.clear();
+    await leggiCosti();
+    EST.setDati(ANAG, COSTI, GENERALI);
+    await EST.caricaDati(true);   // ore dei tecnici/rapportini: servono per le ore per cantiere
+    $('stato-sync').textContent = `✅ Sincronizzato (${COSTI.length} costi cantiere, ${GENERALI.length} generali)`;
+  } catch (e) {
+    $('stato-sync').textContent = '❌ ' + e.message;
+    console.error(e);
+  }
+  popolaSelettori();
+  mostraBannerListe();
+  renderPaginaCosti();
+}
+function mostraBannerListe() {
+  const b = $('banner-liste'), mancanti = ['c', 'g'].filter(k => !LISTA_OK[k]).map(k => LISTE[k].nome);
+  if (!mancanti.length) { b.classList.add('hidden'); return; }
+  b.classList.remove('hidden');
+  b.innerHTML = `Liste SharePoint non trovate (o con colonne diverse): <b>${mancanti.join(', ')}</b>.<br>Posso crearle io, con le colonne giuste, nel sito Rapportini Cantieri. <button class="btn" style="height:36px;margin-top:8px" onclick="creaListe()">Crea le liste mancanti</button>`;
+}
+async function creaListe() {
+  const mancanti = ['c', 'g'].filter(k => !LISTA_OK[k]);
+  try {
+    const siteId = await getSiteId();
+    for (const k of mancanti) {
+      let esiste = true;
+      try { await listIdByName(LISTE[k].nome); } catch (e) { esiste = false; }
+      if (esiste) { alert(`La lista "${LISTE[k].nome}" esiste già ma non ha tutte le colonne giuste (${LISTE[k].colonne.map(c => c.name).join(', ')}). Aggiungi le colonne mancanti da SharePoint.`); continue; }
+      await graphFetch(`/sites/${siteId}/lists`, { method: 'POST', body: JSON.stringify({ displayName: LISTE[k].nome, columns: LISTE[k].colonne, list: { template: 'genericList' } }) });
+    }
+    toast('✅ Liste create');
+    await caricaTutto();
+  } catch (e) {
+    alert('Creazione liste non riuscita: ' + e.message + '\n\nPuoi crearle a mano su SharePoint (Nuovo › Elenco): per i costi di cantiere le colonne Data (solo data), Cantiere, Categoria (testo), Importo (numero); per i generali Categoria (testo), Importo (numero), CompetenzaDal e CompetenzaAl (solo data).');
+  }
+}
+
+// ============================================================
+// CALCOLI (stessi usati in Estrazione Riepilogo Rapportini)
+// ============================================================
+// Fatturato emesso (data fattura dentro dal–al) per cantiere; ci===null = tutti i cantieri riconosciuti.
+function fattPer(ci, dal, al) {
+  return somma(COMP.filter(x => x.df >= dal && x.df <= al && idxC(x.cantiere) >= 0 && (ci === null || idxC(x.cantiere) === ci)), x => x.imp);
+}
+const quotaGenDi = (g, ci) => { const b = fattPer(null, g.dal, g.al); return b ? g.imp * fattPer(ci, g.dal, g.al) / b : 0; };
+const quotaGenTot = ci => somma(GENERALI, g => quotaGenDi(g, ci));
+const nonAllocato = () => somma(GENERALI.filter(g => !fattPer(null, g.dal, g.al)), g => g.imp);
+const costiTot = ci => somma(COSTI.filter(x => x.ci === ci), x => x.imp);
+
+// ============================================================
+// FORM
+// ============================================================
+function popolaSelettori() {
+  const ordine = ANAG.map((c, i) => i).sort((a, b) => (attivo(ANAG[b]) - attivo(ANAG[a])) || nomeC(a).localeCompare(nomeC(b)));
+  const opt = i => `<option value="${i}">${esc(nomeC(i))}${attivo(ANAG[i]) ? '' : ' (non attivo)'}</option>`;
+  const prima = $('cs-cantiere').value, primaF = $('pc-fc').value;
+  const optSP = `<option value="SP">🔍 ${SOPR} (senza ricavo)</option>`;
+  $('cs-cantiere').innerHTML = ordine.map(opt).join('') + optSP;
+  $('pc-fc').innerHTML = '<option value="all">Tutti i cantieri</option>' + ordine.map(opt).join('') + optSP;
+  if (prima) $('cs-cantiere').value = prima;
+  if (primaF) $('pc-fc').value = primaF;
+  if (!$('cs-cat').options.length) $('cs-cat').innerHTML = CATEGORIE.map(c => `<option>${c}</option>`).join('');
+  if (!$('pc-fk').options.length) $('pc-fk').innerHTML = '<option value="">Tutte le categorie</option>' + CATEGORIE.map(c => `<option>${c}</option>`).join('');
+}
+function aggiornaForm() {
+  const g = $('cs-imput').value === 'G';
+  ['w-cantiere', 'w-data'].forEach(k => $(k).classList.toggle('hidden', g));
+  ['w-dal', 'w-al'].forEach(k => $(k).classList.toggle('hidden', !g));
+  $('nota-imput').textContent = g
+    ? 'Costo non legato a un singolo cantiere (commercialista, tasse, licenze…): indica il periodo di competenza e verrà diviso tra i cantieri in proporzione al fatturato emesso in quel periodo (data fattura). Senza fatturato nel periodo resta "non allocato".'
+    : 'Il costo viene attribuito interamente al cantiere scelto.';
+}
+async function aggiungiVoce() {
+  const g = $('cs-imput').value === 'G';
+  const desc = $('cs-desc').value.trim(), cat = $('cs-cat').value, imp = parseFloat($('cs-imp').value);
+  if (!desc || !(imp > 0)) { alert('Compila descrizione e un importo maggiore di zero'); return; }
+  const k = g ? 'g' : 'c';
+  if (!LISTA_OK[k]) { alert(`La lista "${LISTE[k].nome}" non è disponibile: usa il pulsante "Crea le liste mancanti" in alto.`); return; }
+  let fields;
+  if (g) {
+    const dal = $('gn-dal').value, al = $('gn-al').value;
+    if (!dal || !al || dal > al) { alert('Indica un periodo di competenza valido (dal ≤ al)'); return; }
+    fields = { Title: desc, Categoria: cat, Importo: imp, CompetenzaDal: dal, CompetenzaAl: al };
+  } else {
+    const d = $('cs-data').value, v = $('cs-cantiere').value, sp = v === 'SP', i = parseInt(v, 10);
+    if (!d || (!sp && isNaN(i))) { alert('Scegli data e cantiere'); return; }
+    fields = { Title: desc, Data: d, Cantiere: sp ? SOPR : (ANAG[i].codice || ANAG[i].nome), Categoria: cat, Importo: imp };
+  }
+  const btn = $('btn-aggiungi'); btn.disabled = true; btn.textContent = 'Salvataggio…';
+  try {
+    const siteId = await getSiteId(), listId = await listIdByName(LISTE[k].nome);
+    const m = await colMapDi(listId);
+    // usa i nomi interni reali delle colonne
+    const real = { Title: 'Title' };
+    Object.keys(fields).forEach(n => { if (n !== 'Title') real[n] = colDa(m, n) || n; });
+    const body = {}; Object.keys(fields).forEach(n => body[real[n]] = fields[n]);
+    const r = await graphFetch(`/sites/${siteId}/lists/${listId}/items`, { method: 'POST', body: JSON.stringify({ fields: body }) });
+    if (g) GENERALI.push({ id: r.id, desc, cat, imp, dal: fields.CompetenzaDal, al: fields.CompetenzaAl });
+    else COSTI.push({ id: r.id, d: fields.Data, cant: fields.Cantiere, ci: ciDi(fields.Cantiere), desc, cat, imp });
+    $('cs-desc').value = ''; $('cs-imp').value = '';
+    toast('✅ Costo salvato su SharePoint');
+    renderPaginaCosti(); showCosti(g ? 'gen' : 'cant');
+  } catch (e) {
+    alert('Salvataggio su SharePoint NON riuscito:\n\n' + e.message);
+  } finally { btn.disabled = false; btn.textContent = '+ Aggiungi costo'; }
+}
+async function elimina(k, id) {
+  if (!confirm('Eliminare questo costo?')) return;
+  try {
+    const siteId = await getSiteId(), listId = await listIdByName(LISTE[k].nome);
+    await graphFetch(`/sites/${siteId}/lists/${listId}/items/${id}`, { method: 'DELETE' });
+    if (k === 'g') GENERALI = GENERALI.filter(x => x.id !== id); else COSTI = COSTI.filter(x => x.id !== id);
+    toast('Costo eliminato'); renderPaginaCosti();
+  } catch (e) { alert('Eliminazione non riuscita: ' + e.message); }
+}
+// ---------- Ore di preventivo: checklist e assegnazione ai cantieri (lista 11_Ore_Preventivi) ----------
+const PREV_SEL = new Set();
+let PREV_VIS = [];
+function renderPrev() {
+  if (!$('prev-tab')) return;
+  const b = $('prev-banner');
+  if (!EST.pronto()) { $('prev-tab').innerHTML = '<div class="note">⏳ Caricamento rapportini…</div>'; return; }
+  if (!EST.asgOk()) {
+    b.classList.remove('hidden');
+    b.innerHTML = 'Per assegnare le ore serve la lista SharePoint <b>11_Ore_Preventivi</b> con le colonne: <b>Title</b> (esiste già), <b>Data</b> (solo data), <b>Tecnico</b> (testo), <b>Ore</b> (numero), <b>Descrizione</b> (testo), <b>Stato</b> (testo), <b>Cantiere</b> (testo). Creala da SharePoint (Nuovo › Elenco) e poi premi ↻ Ricarica.';
+  } else b.classList.add('hidden');
+  const tutte = EST.preventivi();
+  const tecs = [...new Set(tutte.map(x => x.t))].sort();
+  const pt = $('prev-tec').value; $('prev-tec').innerHTML = '<option value="">Tutti i tecnici</option>' + tecs.map(t => `<option>${esc(t)}</option>`).join(''); if (pt && tecs.includes(pt)) $('prev-tec').value = pt;
+  const pc = $('prev-cant').value; $('prev-cant').innerHTML = ANAG.map((c, i) => i).sort((a, b) => (attivo(ANAG[b]) - attivo(ANAG[a])) || nomeC(a).localeCompare(nomeC(b))).map(i => `<option value="${i}">${esc(nomeC(i))}${attivo(ANAG[i]) ? '' : ' (non attivo)'}</option>`).join(''); if (pc) $('prev-cant').value = pc;
+  const st = $('prev-stato').value, tec = $('prev-tec').value, q = $('prev-q').value.trim().toLowerCase();
+  PREV_VIS = tutte.filter(x => (st === 'T' || (st === 'D' ? !x.stato : x.stato === st)) && (!tec || x.t === tec) && (!q || (x.desc || '').toLowerCase().includes(q)));
+  const stTxt = x => x.stato === 'A' ? `<span class="green">Assegnata a ${esc(nomeC(x.ci))}</span>` : x.stato === 'N' ? '<span style="color:var(--text3)">Non considerata</span>' : '<span class="red">Da assegnare</span>';
+  $('prev-tab').innerHTML = PREV_VIS.length ? `<table><tr><th><input type="checkbox" onchange="prevTutte(this.checked)"></th><th>Data</th><th>Tecnico</th><th>Ore</th><th>Descrizione / luogo</th><th>Stato</th></tr>` +
+    PREV_VIS.map(x => `<tr><td><input type="checkbox" ${PREV_SEL.has(x.key) ? 'checked' : ''} onchange="prevSpunta('${x.key}',this.checked)"></td><td>${dIT(x.d)}</td><td>${esc(x.t)}</td><td>${x.ore} h</td><td>${x.desc ? esc(x.desc) : '<span style="color:var(--text3)">(nessuna descrizione salvata)</span>'}</td><td>${stTxt(x)}</td></tr>`).join('') +
+    `<tr><td colspan="3"><b>Totale mostrato</b></td><td><b>${somma(PREV_VIS, x => x.ore)} h</b></td><td colspan="2"></td></tr></table>` : '<div class="note">Nessuna riga con questi filtri</div>';
+  prevRiepSel();
+}
+function prevRiepSel() {
+  const s = PREV_VIS.filter(x => PREV_SEL.has(x.key));
+  $('prev-sel').textContent = s.length ? `Selezionate: ${s.length} righe · ${somma(s, x => x.ore)} h` : 'Spunta le righe che vuoi assegnare.';
+}
+function prevSpunta(k, on) { on ? PREV_SEL.add(k) : PREV_SEL.delete(k); prevRiepSel(); }
+function prevTutte(on) { PREV_VIS.forEach(x => on ? PREV_SEL.add(x.key) : PREV_SEL.delete(x.key)); renderPrev(); }
+async function prevAzione(a) {
+  const voci = PREV_VIS.filter(x => PREV_SEL.has(x.key));
+  if (!voci.length) { alert('Spunta almeno una riga'); return; }
+  if (!EST.asgOk()) { alert('Manca la lista SharePoint 11_Ore_Preventivi (vedi avviso in alto).'); return; }
+  const ci = parseInt($('prev-cant').value, 10);
+  if (a === 'A' && isNaN(ci)) { alert('Scegli il cantiere'); return; }
+  if (a === 'A' && !confirm(`Assegnare ${voci.length} righe (${somma(voci, x => x.ore)} h) al cantiere ${nomeC(ci)}?`)) return;
+  try {
+    toast('⏳ Salvataggio…');
+    if (a === 'R') await EST.ripristinaAsg(voci); else await EST.salvaAsg(voci, a, ci);
+    PREV_SEL.clear(); toast('✅ Fatto'); renderPrev(); renderPaginaCosti();
+  } catch (e) { alert('Operazione non riuscita: ' + e.message); }
+}
+function showCosti(p) {
+  const est = p === 'scheda' || p === 'incidenza';
+  ['cant', 'gen', 'riep', 'prev'].forEach(k => $('pc-' + k).classList.toggle('hidden', k !== p));
+  $('pc-est').classList.toggle('hidden', !est);
+  $('panel-nuovo').classList.toggle('hidden', est || p === 'prev');
+  if (p === 'prev') renderPrev();
+  if (est) EST.mostraVista(p);
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.p === p));
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+const EXPORTS = {};
+function renderPaginaCosti() {
+  const fc = $('pc-fc').value || 'all', fk = $('pc-fk').value;
+  const matchC = x => fc === 'all' || (fc === 'SP' ? x.ci === -2 : x.ci === +fc);
+  const cs = COSTI.filter(x => matchC(x) && (!fk || x.cat === fk)).sort((a, b) => b.d.localeCompare(a.d));
+  const tot = somma(cs, x => x.imp);
+  const nomeCosto = x => x.ci === -2 ? SOPR : x.ci >= 0 ? nomeC(x.ci) : (x.cant || '—');
+  // ore dei tecnici sul cantiere scelto (o su tutti); per Sopralluoghi/Preventivi: ore senza ricavo
+  const pronte = EST.pronto();
+  const oreSel = !pronte ? null : fc === 'all' ? EST.oreTutte() : fc === 'SP' ? EST.oreSopr() : EST.oreCant(+fc);
+  const fattSel = fc === 'all' ? fattPer(null, '0000-01-01', '9999-12-31') : fc === 'SP' ? 0 : fattPer(+fc, '0000-01-01', '9999-12-31');
+  $('pc-sum').innerHTML = `
+    <div class="card"><div class="l">Ore dei tecnici${fc === 'all' ? ' (tutte, sopralluoghi inclusi)' : fc === 'SP' ? ' su sopralluoghi/preventivi' : ' sul cantiere'}</div><div class="v">${oreSel === null ? '…' : oreSel + ' h'}</div><div class="s">${fc === 'all' && pronte ? `di cui sopralluoghi/preventivi: ${EST.oreSopr()} h` : fc === 'SP' ? 'ore senza ricavo diretto' : ''}</div></div>
+    <div class="card"><div class="l">Costi (con i filtri attuali)</div><div class="v red">${eur(tot)}</div><div class="s">${cs.length} voci</div></div>
+    ${fc === 'SP' ? '' : `<div class="card"><div class="l">Fatturato</div><div class="v green">${eur(fattSel)}</div><div class="s">${oreSel ? eur(fattSel / oreSel) + '/h lordi' : ''}</div></div>`}`;
+  $('pc-costi').innerHTML = cs.length ? `<table><tr><th>Data</th><th>Cantiere</th><th>Descrizione</th><th>Categoria</th><th>Importo</th><th></th></tr>` +
+    cs.map(x => `<tr><td>${dIT(x.d)}</td><td>${esc(nomeCosto(x))}</td><td>${esc(x.desc)}</td><td>${esc(x.cat)}</td><td>${eur(x.imp)}</td><td><button class="x" title="Elimina" onclick="elimina('c','${x.id}')">✕</button></td></tr>`).join('') +
+    `<tr><td colspan="4"><b>Totale</b></td><td><b>${eur(tot)}</b></td><td></td></tr></table>` : '<div class="note">Nessun costo con questi filtri</div>';
+  EXPORTS.p_costi = { titolo: 'Costi di cantiere', sub: `Cantiere: ${fc === 'all' ? 'tutti' : nomeC(+fc)} · Categoria: ${fk || 'tutte'}`, cols: ['Data', 'Cantiere', 'Descrizione', 'Categoria', 'Importo'],
+    righe: cs.map(x => [dIT(x.d), nomeCosto(x), x.desc, x.cat, eur(x.imp)]).concat(cs.length ? [['', '', '', 'TOTALE', eur(tot)]] : []) };
+
+  const nonAll = nonAllocato();
+  const ripart = g => ANAG.map((c, i) => ({ n: nomeC(i), q: quotaGenDi(g, i) })).filter(r => r.q > 0);
+  $('pc-gen-tab').innerHTML = GENERALI.length ? `<table><tr><th>Descrizione</th><th>Categoria</th><th>Importo</th><th>Competenza</th><th>Fatturato del periodo</th><th>Ripartizione tra i cantieri</th><th></th></tr>` +
+    GENERALI.slice().sort((a, b) => b.dal.localeCompare(a.dal)).map(g => { const b = fattPer(null, g.dal, g.al);
+      return `<tr><td>${esc(g.desc)}</td><td>${esc(g.cat)}</td><td>${eur(g.imp)}</td><td>${dIT(g.dal)} – ${dIT(g.al)}</td><td>${eur(b)}</td><td>${b ? ripart(g).map(r => `${esc(r.n)}: <b>${eur(r.q)}</b>`).join('<br>') : '<span class="red">non allocato</span>'}</td><td><button class="x" title="Elimina" onclick="elimina('g','${g.id}')">✕</button></td></tr>`; }).join('') +
+    `<tr><td colspan="2"><b>Totale</b></td><td><b>${eur(somma(GENERALI, g => g.imp))}</b></td><td colspan="4"></td></tr></table>${nonAll ? `<div class="note red">Non allocato (nessun fatturato nel periodo): ${eur(nonAll)}</div>` : ''}` : '<div class="note">Nessun costo generale</div>';
+  EXPORTS.p_gen = { titolo: 'Costi generali', sub: 'Spalmati sul fatturato emesso nel periodo di competenza', cols: ['Descrizione', 'Categoria', 'Importo', 'Competenza dal', 'Competenza al', 'Fatturato del periodo', 'Ripartizione'],
+    righe: GENERALI.map(g => { const b = fattPer(null, g.dal, g.al); return [g.desc, g.cat, eur(g.imp), dIT(g.dal), dIT(g.al), eur(b), b ? ripart(g).map(r => `${r.n}: ${eur(r.q)}`).join(' | ') : 'non allocato']; }) };
+
+  const totC = somma(COSTI, x => x.imp), totG = somma(GENERALI, g => g.imp);
+  $('pr-cards').innerHTML = `
+    <div class="card"><div class="l">Costi di cantiere</div><div class="v red">${eur(totC)}</div><div class="s">${COSTI.length} voci</div></div>
+    <div class="card"><div class="l">Costi generali</div><div class="v red">${eur(totG)}</div><div class="s">allocati ${eur(totG - nonAll)}${nonAll ? ` · non allocati ${eur(nonAll)}` : ''}</div></div>
+    <div class="card"><div class="l">Totale costi</div><div class="v red">${eur(totC + totG)}</div><div class="s">su fatturato ${eur(somma(COMP, x => x.imp))}</div></div>`;
+  const perCat = [...CATEGORIE.map(k => ['Cantiere · ' + k, somma(COSTI.filter(x => x.cat === k), x => x.imp)]), ...CATEGORIE.map(k => ['Generali · ' + k, somma(GENERALI.filter(x => x.cat === k), x => x.imp)])].filter(r => r[1] > 0);
+  $('pr-cat').innerHTML = '<table><tr><th>Categoria</th><th>Importo</th></tr>' + (perCat.map(r => `<tr><td>${esc(r[0])}</td><td>${eur(r[1])}</td></tr>`).join('') || '<tr><td colspan="2">Nessun dato</td></tr>') + '</table>';
+  const perMese = {}; COSTI.forEach(x => { const m = x.d.slice(0, 7); if (m) perMese[m] = (perMese[m] || 0) + x.imp; });
+  $('pr-mese').innerHTML = '<table><tr><th>Mese</th><th>Costi cantiere</th></tr>' + (Object.keys(perMese).sort().reverse().map(m => `<tr><td>${m.split('-').reverse().join('/')}</td><td>${eur(perMese[m])}</td></tr>`).join('') || '<tr><td colspan="2">Nessun dato</td></tr>') + '</table>';
+  // r = [nome, costi cantiere, quota generali, fatturato, ore tecnici]
+  const righeC = ANAG.map((c, i) => [nomeC(i), costiTot(i), quotaGenTot(i), fattPer(i, '0000-01-01', '9999-12-31'), EST.pronto() ? EST.oreCant(i) : 0]).filter(r => r[1] || r[2] || r[3] || r[4]);
+  const costiSP = somma(COSTI.filter(x => x.ci === -2), x => x.imp), oreSPtot = EST.pronto() ? EST.oreSopr() : 0;
+  if (costiSP || oreSPtot) righeC.push([SOPR, costiSP, 0, 0, oreSPtot]);
+  // MOL (margine operativo lordo) = fatturato − costi cantiere − quota costi generali; % utile = MOL ÷ fatturato
+  const molDi = r => r[3] - r[1] - r[2];
+  const pctDi = r => r[3] ? (molDi(r) / r[3] * 100).toFixed(1).replace('.', ',') + ' %' : '—';
+  // €/ora netta = MOL ÷ ore dei tecnici (tutti i costi già sottratti)
+  const ehDi = r => r[4] ? molDi(r) / r[4] : null;
+  const ehTxt = r => ehDi(r) === null ? '—' : eur(ehDi(r)) + '/h';
+  const colMol = v => `style="color:var(--${v >= 0 ? 'green' : 'red'});font-weight:600"`;
+  const totC2 = righeC.reduce((t, r) => [t[0], t[1] + r[1], t[2] + r[2], t[3] + r[3], t[4] + r[4]], ['TOTALE', 0, 0, 0, 0]);
+  const rigaCant = (r, grassetto) => `<tr${grassetto ? ' style="border-top:2px solid var(--accent)"' : ''}><td>${grassetto ? '<b>TOTALE</b>' : esc(r[0])}</td><td>${r[4]} h</td><td>${eur(r[1])}</td><td>${eur(r[2])}</td><td>${eur(r[1] + r[2])}</td><td>${eur(r[3])}</td><td ${colMol(molDi(r))}>${eur(molDi(r))}</td><td ${colMol(molDi(r))}>${pctDi(r)}</td><td ${colMol(ehDi(r) === null ? 0 : ehDi(r))}>${ehTxt(r)}</td></tr>`;
+  $('pr-cant').innerHTML = '<table><tr><th>Cantiere</th><th>Ore tecnici</th><th>Costi cantiere</th><th>Quota generali</th><th>Totale costi</th><th>Fatturato</th><th>MOL</th><th>% utile</th><th>€/ora netta</th></tr>' +
+    (righeC.length ? righeC.map(r => rigaCant(r)).join('') + (righeC.length > 1 ? rigaCant(totC2, true) : '') : '<tr><td colspan="9">Nessun dato</td></tr>') + '</table>' +
+    '<div class="note">MOL = fatturato − costi di cantiere − quota dei costi generali. % utile = MOL ÷ fatturato. €/ora netta = MOL ÷ ore dei tecnici (con tutti i costi già sottratti; nel TOTALE le ore includono anche i sopralluoghi). Sopralluoghi/Preventivi: ore e costi senza ricavo diretto, riducono il MOL totale. Le ore sono quelle dei rapportini dei tecnici; le ore di preventivo assegnate a un cantiere (scheda "Ore preventivo") sono incluse nelle ore del cantiere e tolte dai Sopralluoghi/Preventivi.</div>';
+  EXPORTS.p_riep = { titolo: 'Riepilogo costi e MOL per cantiere', sub: 'MOL = fatturato − costi cantiere − quota costi generali', cols: ['Cantiere', 'Ore tecnici', 'Costi cantiere', 'Quota generali', 'Totale costi', 'Fatturato', 'MOL', '% utile', '€/ora netta'],
+    righe: righeC.concat(righeC.length > 1 ? [totC2] : []).map(r => [r[0], r[4] + ' h', eur(r[1]), eur(r[2]), eur(r[1] + r[2]), eur(r[3]), eur(molDi(r)), pctDi(r), ehTxt(r)]) };
+}
+
+// ============================================================
+// EXPORT — salvati SOLO su OneDrive: 05_RAPPORTINI CANTIERI/Estrazione/Costi (nessun download locale)
+// ============================================================
+function costruisciBlob(sezioni, formato) {
+  if (formato === 'xlsx') {
+    const wb = XLSX.utils.book_new();
+    sezioni.forEach(e => {
+      const ws = XLSX.utils.aoa_to_sheet([[e.titolo], [e.sub], [], e.cols].concat(e.righe));
+      ws['!cols'] = e.cols.map(() => ({ wch: 26 }));
+      XLSX.utils.book_append_sheet(wb, ws, e.titolo.slice(0, 28).replace(/[\\/?*\[\]:]/g, ' '));
+    });
+    return new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: sezioni.some(e => e.cols.length > 4) ? 'landscape' : 'portrait' });
+  let y = 16;
+  sezioni.forEach((e, i) => {
+    if (i > 0 && y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 16; }
+    doc.setFontSize(14); doc.setTextColor(20); doc.text(e.titolo, 14, y);
+    doc.setFontSize(9); doc.setTextColor(110); doc.text(e.sub, 14, y + 6);
+    doc.autoTable({ startY: y + 10, head: [e.cols], body: e.righe.map(r => r.map(c => String(c))), styles: { fontSize: 9 }, headStyles: { fillColor: [200, 169, 110], textColor: 20 } });
+    y = doc.lastAutoTable.finalY + 14;
+  });
+  return doc.output('blob');
+}
+async function esportaRiepilogo(formato) { return esportaPagina(['p_riepcards', 'p_cat', 'p_mese', 'p_riep'], formato, 'Riepilogo_costi_completo'); }
+async function esportaPagina(k, formato, titoloFile) {
+  const chiavi = Array.isArray(k) ? k : [k];
+  const sezioni = chiavi.map(c => EXPORTS[c]).filter(Boolean);
+  if (!sezioni.length) { toast('⚠️ Niente da esportare'); return; }
+  const e = { titolo: titoloFile || sezioni[0].titolo };
+  const filename = `${e.titolo.replace(/[^\wàèéìòù]+/gi, '_')}_${oggiISO()}.${formato === 'xlsx' ? 'xlsx' : 'pdf'}`;
+  toast('☁️ Salvataggio su OneDrive...');
+  try {
+    await caricaCopiaRapportino('Estrazione', 'Costi', filename, costruisciBlob(sezioni, formato));
+    toast(`✅ ${formato === 'xlsx' ? 'Excel' : 'PDF'} salvato su OneDrive (05_RAPPORTINI CANTIERI/Estrazione/Costi)`);
+  } catch (err) {
+    console.error(err); toast('⚠️ Salvataggio OneDrive fallito');
+    alert(`Il salvataggio su OneDrive NON è riuscito:\n\n` + err.message);
+  }
+}
+
+
+// ============================================================
+// SCHEDA CANTIERE + INCIDENZA €/ORA (spostate qui da Estrazione Riepilogo Rapportini)
+// Legge rapportini, compensi e — dalla pagina — anagrafica, costi di cantiere e costi generali.
+// ============================================================
+const EST = (function () {
+  const showToast = m => toast(m);
+  async function leggiRC() {
+    const listId = await listIdByName('04_Rapportini');
+    const m = await colMapDi(listId);
+    const cD = colDa(m, 'DataRapportino', 'Data', 'DataGiornata', 'field_2'), cC = colDa(m, 'Cantiere', 'NomeCantiere', 'field_3'),
+      cOre = colDa(m, 'OreTotali', 'OreGiornata', 'TotaleOre', 'field_11'), cDet = colDa(m, 'LavorazioniPerDitta', 'DettaglioDitte', 'field_9'),
+      cDitte = colDa(m, 'DittePresenti', 'Ditte', 'field_8'), cComp = colDa(m, 'CompilatoDa', 'Compilatore', 'field_15');
+    return (await tuttiGliItem(listId)).map(it => {
+      const f = it.fields || {};
+      const righeDitte = [];
+      String(cDet ? f[cDet] || '' : '').split('\n').forEach(riga => {
+        const mm = riga.match(/^(.*?)\s*\(\s*([\d.,]+)\s*operai\s*[×x]\s*([\d.,]+)\s*h\s*=\s*([\d.,]+)\s*h\s*\)/i);
+        if (mm) righeDitte.push({ ditta: mm[1].trim(), ore: num(mm[4]) });
+      });
+      return { d: String((cD && f[cD]) || '').slice(0, 10), cantiere: (cC && f[cC]) || '', ore: num(cOre && f[cOre]),
+        ditte: righeDitte, ditteNomi: (cDitte && f[cDitte]) || '', compilatore: (cComp && f[cComp]) || '' };
+    }).filter(r => r.d);
+  }
+  // Rapportini tecnici: un item per tecnico/giorno, con "Nome cantiere (Xh), Altro (Yh)".
+  async function leggiRT() {
+    const listId = await listIdByName('06_Rapportini_Tecnici');
+    const m = await colMapDi(listId);
+    const cT = colDa(m, 'Tecnico', 'Title'), cD = colDa(m, 'Data', 'DataGiornata'), cCa = colDa(m, 'Cantieri', 'CantiereLavorati'), cO = colDa(m, 'OreTotali', 'Ore'),
+      cSp = colDa(m, 'Sopralluoghi', 'DettaglioSopralluoghi');
+    return (await tuttiGliItem(listId)).map(it => {
+      const f = it.fields || {};
+      const stringa = String((cCa && f[cCa]) || '');
+      const cant = [];
+      const re = /([^(),][^()]*?)\s*\(\s*([\d.,]+)\s*h\s*\)/g; let mm;
+      while ((mm = re.exec(stringa))) cant.push({ nome: mm[1].replace(/^[,\s]+/, '').trim(), ore: num(mm[2]) });
+      // singoli sopralluoghi/preventivi della giornata (con luogo, se la colonna "Sopralluoghi" è presente)
+      const spCant = cant.filter(c => isSP(c.nome)), oreSpTot = somma(spCant, c => c.ore);
+      let sp = String((cSp && f[cSp]) || '').split('|').map(s => s.trim()).filter(Boolean).map(s => {
+        const x = s.match(/^(.*?)\s*\(\s*([\d.,]+)\s*h\s*\)\s*$/); return x ? { desc: x[1].trim(), ore: num(x[2]) } : null; }).filter(Boolean);
+      if (!sp.length || Math.abs(somma(sp, s => s.ore) - oreSpTot) > 0.01) sp = spCant.map(c => ({ desc: '', ore: c.ore }));
+      sp = sp.map((s, n) => ({ ...s, key: it.id + '#' + n }));
+      return { id: it.id, d: String((cD && f[cD]) || '').slice(0, 10), t: ((cT && f[cT]) || '').trim(), ore: num(cO && f[cO]), cant, sp };
+    }).filter(r => r.d && r.t);
+  }
+  // Ore di preventivo assegnate a un cantiere (lista 11_Ore_Preventivi): Title = chiave, Data, Tecnico, Ore, Descrizione, Stato, Cantiere
+  const LISTA_PREV = '11_Ore_Preventivi';
+  async function leggiAsg() {
+    DS.asg = new Map(); DS.asgOk = false;
+    try {
+      const listId = await listIdByName(LISTA_PREV), m = await colMapDi(listId);
+      const cS = colDa(m, 'Stato'), cC = colDa(m, 'Cantiere');
+      if (!cS || !cC) throw new Error('colonne mancanti');
+      (await tuttiGliItem(listId)).forEach(it => { const f = it.fields || {};
+        if (f.Title) DS.asg.set(f.Title, { id: it.id, stato: /non/i.test(f[cS] || '') ? 'N' : 'A', cant: f[cC] || '' }); });
+      DS.asgOk = true;
+    } catch (e) { console.warn('Lista ore preventivo:', e.message); }
+  }
+  // assegnazione valida di una voce: { stato:'A', ci } se assegnata a un cantiere riconosciuto, { stato:'N' } se non considerata
+  const asgDi = key => { const a = DS.asg && DS.asg.get(key); if (!a) return null; if (a.stato === 'N') return { stato: 'N', id: a.id }; const ci = idxCantiere(a.cant); return ci >= 0 ? { stato: 'A', ci, id: a.id } : null; };
+  const oreAsgItem = r => somma((r.sp || []).filter(s => { const a = asgDi(s.key); return a && a.stato === 'A'; }), s => s.ore);
+  function preventivi() {
+    const out = [];
+    DS.rt.forEach(r => (r.sp || []).forEach(s => { const a = asgDi(s.key);
+      out.push({ key: s.key, d: r.d, t: r.t, ore: s.ore, desc: s.desc, stato: a ? a.stato : '', ci: a && a.stato === 'A' ? a.ci : -1, id: a ? a.id : null }); }));
+    return out.sort((a, b) => b.d.localeCompare(a.d) || a.t.localeCompare(b.t));
+  }
+  async function salvaAsg(voci, stato, ci) {
+    const siteId = await getSiteId(), listId = await listIdByName(LISTA_PREV), m = await colMapDi(listId);
+    const nome = stato === 'N' ? '' : (DS.anag[ci].codiceCompleto || DS.anag[ci].nomeCantiere);
+    const campi = v => { const o = { Title: v.key }, put = (n, val) => { const c = colDa(m, n); if (c) o[c] = val; };
+      put('Data', v.d); put('Tecnico', v.t); put('Ore', v.ore); put('Descrizione', v.desc || ''); put('Stato', stato === 'N' ? 'NonConsiderata' : 'Assegnata'); put('Cantiere', nome); return o; };
+    for (const v of voci) {
+      const ex = DS.asg.get(v.key);
+      if (ex) { await graphFetch(`/sites/${siteId}/lists/${listId}/items/${ex.id}/fields`, { method: 'PATCH', body: JSON.stringify(campi(v)) }); DS.asg.set(v.key, { id: ex.id, stato, cant: nome }); }
+      else { const r = await graphFetch(`/sites/${siteId}/lists/${listId}/items`, { method: 'POST', body: JSON.stringify({ fields: campi(v) }) }); DS.asg.set(v.key, { id: r.id, stato, cant: nome }); }
+    }
+    aggiorna();
+  }
+  async function ripristinaAsg(voci) {
+    const siteId = await getSiteId(), listId = await listIdByName(LISTA_PREV);
+    for (const v of voci) { const ex = DS.asg.get(v.key); if (!ex) continue;
+      await graphFetch(`/sites/${siteId}/lists/${listId}/items/${ex.id}`, { method: 'DELETE' }); DS.asg.delete(v.key); }
+    aggiorna();
+  }
+  // Compensi (07_COMPENSI): solo i campi utili ai riepiloghi; gli Archiviati sono esclusi.
+  async function leggiCompensi() {
+    const listId = await listIdByName(GRAPH_CONFIG.listCompensi || '07_COMPENSI');
+    const m = await colMapDi(listId);
+    const cC = colDa(m, 'Cantiere'), cF = colDa(m, 'Fonte Nome'), cS = colDa(m, 'Stato'), cIF = colDa(m, 'Importo Fatturato'),
+      cIS = colDa(m, 'Importo Stimato'), cDF = colDa(m, 'Data Fatturazione'), cDP = colDa(m, 'Data Pagamento');
+    return (await tuttiGliItem(listId)).map(it => {
+      const f = it.fields || {};
+      return { cantiere: (cC && f[cC]) || '', fonte: (cF && f[cF]) || '', stato: (cS && f[cS]) || 'DaFatturare',
+        impF: num(cIF && f[cIF]), impS: num(cIS && f[cIS]), df: String((cDF && f[cDF]) || '').slice(0, 10), pag: String((cDP && f[cDP]) || '').slice(0, 10) };
+    }).filter(c => c.stato !== 'Archiviato');
+  }
+
+
+  // ---------- giorni "non lavorato" (lista SharePoint 08_Giorni_Esclusi: Data, Soggetto, Tipo, Motivo) ----------
+  // ---------- costi (liste 09_Costi_Cantiere e 10_Costi_Generali, gestite da VisionBuild_Costi.html) ----------
+
+  const DS = { rc: [], rt: [], comp: [], anag: [], costiC: [], costiG: [], caricato: false, inCorso: null, errore: null };
+  function caricaDati(forza) {
+    if (DS.inCorso) return DS.inCorso;
+    if (DS.caricato && !forza) return Promise.resolve();
+    DS.errore = null;
+    DS.inCorso = Promise.all([leggiRC(), leggiRT(), leggiCompensi()])
+      .then(async ([rc, rt, comp]) => { DS.rc = rc; DS.rt = rt; DS.comp = comp; await leggiAsg(); DS.caricato = true; })
+      .catch(e => { DS.errore = e.message; console.warn('Caricamento rapportini fallito:', e); })
+      .finally(() => { DS.inCorso = null; });
+    return DS.inCorso;
+  }
+  // Anagrafica e costi arrivano dalla pagina (già caricati): qui si ricevono per riferimento.
+  function setDati(anag, costiC, costiG) {
+    DS.anag = anag.map(c => ({ nomeCantiere: c.nome, codiceCompleto: c.codice, status: c.status }));
+    DS.costiC = costiC; DS.costiG = costiG; idxCache.clear();
+  }
+  const idxCache = new Map();
+  function idxCantiere(testo) {
+    const n = norm(testo); if (!n) return -1;
+    if (idxCache.has(n)) return idxCache.get(n);
+    let r = DS.anag.findIndex(c => n === norm(c.codiceCompleto) || n === norm(c.nomeCantiere));
+    if (r < 0) r = DS.anag.findIndex(c => { const nn = norm(c.nomeCantiere); return nn.length > 3 && n.includes(nn); });
+    idxCache.set(n, r); return r;
+  }
+  const nomeC = i => DS.anag[i] ? (DS.anag[i].codiceCompleto || DS.anag[i].nomeCantiere) : '—';
+  const attivo = c => (c.status || '').toLowerCase().includes('attiv');
+
+  const EXPORTS = {};
+  function selezioneIdx() {
+    const v = $('vb-sel').value;
+    return v === 'all' ? DS.anag.map((_, i) => i) : [+v];
+  }
+  function datiCantiere(i) {
+    const dal = $('vb-dal').value, al = $('vb-al').value, inPer = d => (!dal || d >= dal) && (!al || d <= al);
+    const rp = [];
+    DS.rt.forEach(r => r.cant.forEach(c => { if (idxCantiere(c.nome) === i && inPer(r.d)) rp.push({ d: r.d, t: r.t, ore: c.ore }); }));
+    // ore di preventivo/sopralluogo assegnate a questo cantiere (tenute distinte: prev = true)
+    DS.rt.forEach(r => (r.sp || []).forEach(s => { const a = asgDi(s.key); if (a && a.stato === 'A' && a.ci === i && inPer(r.d)) rp.push({ d: r.d, t: r.t, ore: s.ore, prev: true }); }));
+    const rcs = DS.rc.filter(r => idxCantiere(r.cantiere) === i && inPer(r.d));
+    const ds = [];
+    rcs.forEach(r => {
+      if (r.ditte.length) r.ditte.forEach(x => ds.push({ d: r.d, ditta: x.ditta, ore: x.ore }));
+      else if (r.ore) ds.push({ d: r.d, ditta: r.ditteNomi || 'Ditte (dettaglio non disponibile)', ore: r.ore });
+    });
+    const cp = DS.comp.filter(c => idxCantiere(c.cantiere) === i && (!dal && !al || !c.df || inPer(c.df)));
+    return { rp, ds, cp, rcs };
+  }
+  function metriche(rp, cp) {
+    const ore = somma(rp, r => r.ore);
+    const fatt = somma(cp.filter(x => x.stato === 'Fatturato'), x => x.impF);
+    const inc = somma(cp.filter(x => x.stato === 'Fatturato' && x.pag), x => x.impF);
+    const daFatt = somma(cp.filter(x => x.stato === 'DaFatturare'), x => x.impS);
+    return { ore, fatt, inc, daFatt };
+  }
+  // Incidenza €/ora: SEMPRE su tutte le ore dei tecnici e tutto il fatturato del/dei cantiere/i,
+  // ignorando il periodo Dal/Al (con date parziali ore e fatture non coinciderebbero).
+  // Comprende le ore di preventivo assegnate al cantiere (ore del cantiere + ore di preventivo).
+  const orePrevIdx = idx => somma(DS.rt, r => somma((r.sp || []).filter(s => { const a = asgDi(s.key); return a && a.stato === 'A' && idx.includes(a.ci); }), s => s.ore));
+  const oreTotTec = idx => { let o = 0; idx.forEach(i => DS.rt.forEach(r => r.cant.forEach(c => { if (idxCantiere(c.nome) === i) o += c.ore; }))); return o + orePrevIdx(idx); };
+  function ehTotale(idx) {
+    const fatt = somma(idx, i => somma(DS.comp.filter(x => idxCantiere(x.cantiere) === i && x.stato === 'Fatturato'), x => x.impF));
+    const ore = oreTotTec(idx);
+    return ore ? fatt / ore : 0;
+  }
+
+  // Costi: per i margini si usano SEMPRE tutti i costi del cantiere (come per fatturato e ore, ignorano Dal/Al).
+  const costiTotIdx = idx => somma(DS.costiC.filter(x => idx.includes(idxCantiere(x.cant))), x => x.imp);
+  const costiPeriodoIdx = idx => { const dal = $('vb-dal').value, al = $('vb-al').value;
+    return DS.costiC.map(x => ({ ...x, c: idxCantiere(x.cant) })).filter(x => idx.includes(x.c) && (!dal || x.d >= dal) && (!al || x.d <= al)).sort((a, b) => b.d.localeCompare(a.d)); };
+  // Costi generali: spalmati in proporzione al fatturato EMESSO (data fattura) nel periodo di competenza.
+  const fattPer = (ci, dal, al) => somma(DS.comp.filter(x => x.stato === 'Fatturato' && x.df && x.df >= dal && x.df <= al && idxCantiere(x.cantiere) >= 0 && (ci === null || idxCantiere(x.cantiere) === ci)), x => x.impF);
+  const quotaGenDi = (g, ci) => { const b = fattPer(null, g.dal, g.al); return b ? g.imp * fattPer(ci, g.dal, g.al) / b : 0; };
+  const quotaGenTot = idx => somma(idx, ci => somma(DS.costiG, g => quotaGenDi(g, ci)));
+  const nonAllocato = () => somma(DS.costiG.filter(g => !fattPer(null, g.dal, g.al)), g => g.imp);
+  const fattTot = idx => somma(DS.comp.filter(x => x.stato === 'Fatturato' && idx.includes(idxCantiere(x.cantiere))), x => x.impF);
+  const ehNetta = idx => { const o = oreTotTec(idx); return o ? (fattTot(idx) - costiTotIdx(idx)) / o : 0; };
+  const ehDopoGen = idx => { const o = oreTotTec(idx); return o ? (fattTot(idx) - costiTotIdx(idx) - quotaGenTot(idx)) / o : 0; };
+
+  // Ore di Sopralluogo/Preventivi: ore dei tecnici senza ricavo diretto, non legate a un cantiere.
+  const isSP = n => /sopralluog|preventiv/i.test(n);
+  // (al netto delle ore già assegnate a un cantiere)
+  const oreSP = (dal, al) => somma(DS.rt, r => (!dal || r.d >= dal) && (!al || r.d <= al) ? somma(r.cant.filter(c => isSP(c.nome)), c => c.ore) - oreAsgItem(r) : 0);
+  const oreTecTotali = () => somma(DS.rt, r => somma(r.cant, c => c.ore));
+
+  function impostaDateDefault() {
+    const idx = selezioneIdx(), date = [];
+    idx.forEach(i => { DS.rt.forEach(r => r.cant.forEach(c => { if (idxCantiere(c.nome) === i) date.push(r.d); })); DS.rc.forEach(r => { if (idxCantiere(r.cantiere) === i) date.push(r.d); }); });
+    date.sort();
+    $('vb-dal').value = date.length ? date[0] : '';
+    $('vb-al').value = oggiISO();
+  }
+  function popolaSelettore() {
+    const sel = $('vb-sel'), prima = sel.value;
+    const ordine = DS.anag.map((c, i) => i).sort((a, b) => (attivo(DS.anag[b]) - attivo(DS.anag[a])) || nomeC(a).localeCompare(nomeC(b)));
+    sel.innerHTML = '<option value="all">📊 Tutti i cantieri (totale e media)</option>' + ordine.map(i => `<option value="${i}">${esc(nomeC(i))}${attivo(DS.anag[i]) ? '' : ' (non attivo)'}</option>`).join('');
+    if (prima && [...sel.options].some(o => o.value === prima)) sel.value = prima;
+  }
+  function codiceCartella() {
+    const v = $('vb-sel').value;
+    return v === 'all' ? 'Tutti i Cantieri' : nomeC(+v).replace(/[\\/:*?"<>|]/g, '_');
+  }
+
+  function renderScheda() {
+    const idx = selezioneIdx(), tutti = idx.length > 1;
+    let rp = [], cp = [], ds = [], rcs = [];
+    idx.forEach(i => { const f = datiCantiere(i); f.rp.forEach(x => rp.push({ ...x, c: i })); f.cp.forEach(x => cp.push({ ...x, c: i })); f.ds.forEach(x => ds.push({ ...x, c: i })); f.rcs.forEach(x => rcs.push({ ...x, c: i })); });
+    const m = metriche(rp, cp), ehT = ehTotale(idx), oreT = oreTotTec(idx), oreSub = somma(ds, r => r.ore);
+    const cs = costiPeriodoIdx(idx), costiP = somma(cs, x => x.imp), costiT = costiTotIdx(idx), qG = quotaGenTot(idx), ehN = ehNetta(idx), ehG = ehDopoGen(idx), fattAll = fattTot(idx);
+    const oreSPper = oreSP($('vb-dal').value, $('vb-al').value);
+    const nC = Math.max(1, new Set(rp.map(r => r.c).concat(cp.map(x => x.c))).size);
+    const vista = tutti ? 'Tutti i cantieri' : nomeC(idx[0]);
+    const sottotitolo = `${vista} · dal ${dIT($('vb-dal').value)} al ${dIT($('vb-al').value)}`;
+    $('vb-sc-cards').innerHTML = `
+      <div class="vb-card"><div class="l">Ore tecnici</div><div class="v">${m.ore} h</div><div class="s">${rp.length} registrazioni${somma(rp.filter(r => r.prev), r => r.ore) ? ` · di cui ${somma(rp.filter(r => r.prev), r => r.ore)} h di preventivo` : ''}${tutti ? ` · ${nC} cantieri` : ''}</div></div>
+      ${tutti ? `<div class="vb-card"><div class="l">Ore sopralluoghi/preventivi</div><div class="v">${oreSPper} h</div><div class="s">senza ricavo diretto</div></div>` : ''}
+      <div class="vb-card"><div class="l">Totale fatturato</div><div class="v" style="color:var(--green)">${eur(m.fatt)}</div></div>
+      <div class="vb-card"><div class="l">Totale da incassare</div><div class="v" style="color:var(--red)">${eur(m.fatt - m.inc)}</div></div>
+      <div class="vb-card"><div class="l">Da fatturare</div><div class="v" style="color:var(--accent2)">${eur(m.daFatt)}</div></div>
+      <div class="vb-card"><div class="l">Margine netto</div><div class="v" style="color:var(--${fattAll - costiT - qG >= 0 ? 'green' : 'red'})">${eur(fattAll - costiT - qG)}</div><div class="s">dopo costi di cantiere e quota generali</div></div>
+      <div class="vb-card"><div class="l">Incidenza €/ora</div><div class="v" style="color:var(--${ehG >= 0 ? 'accent2' : 'red'})">${oreT ? eur(ehG) : '—'}/h</div><div class="s">margine netto ÷ ore tecnici (tutti i costi inclusi)</div></div>`;
+
+    const per = {}; rp.forEach(r => per[r.t] = (per[r.t] || 0) + r.ore);
+    const max = Math.max(1, ...Object.values(per));
+    $('vb-sc-tecnici').innerHTML = Object.entries(per).sort((a, b) => b[1] - a[1]).map(([t, o]) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(t)}</span><span>${o} h</span></div><div class="vb-bar"><i style="width:${o / max * 100}%"></i></div></div>`).join('') || '<div class="vb-note">Nessun rapportino tecnico nel periodo</div>';
+
+    const perD = {}; ds.forEach(r => { const k = (tutti ? r.c + '|' : '') + r.ditta; (perD[k] = perD[k] || { c: r.c, ditta: r.ditta, ore: 0, gg: new Set() }).ore += r.ore; perD[k].gg.add(r.d); });
+    const righeD = Object.values(perD).sort((a, b) => b.ore - a.ore);
+    $('vb-sc-sub').innerHTML = righeD.length ? `<div class="table-container" style="margin-bottom:0"><div class="table-inner"><table><tr>${tutti ? '<th>Cantiere</th>' : ''}<th>Ditta</th><th>Giornate</th><th>Ore totali</th></tr>` +
+      righeD.map(r => `<tr>${tutti ? `<td>${esc(nomeC(r.c))}</td>` : ''}<td>${esc(r.ditta)}</td><td>${r.gg.size}</td><td>${r.ore} h</td></tr>`).join('') +
+      `<tr><td colspan="${tutti ? 3 : 2}"><b>Totale</b></td><td><b>${oreSub} h</b></td></tr></table></div></div>` : '<div class="vb-note">Nessuna ora di subappaltatori nel periodo</div>';
+
+    $('vb-sc-costi').innerHTML = cs.length ? `<div class="table-container" style="margin-bottom:0"><div class="table-inner"><table><tr><th>Data</th>${tutti ? '<th>Cantiere</th>' : ''}<th>Descrizione</th><th>Categoria</th><th>Importo</th></tr>` +
+      cs.map(x => `<tr><td>${dIT(x.d)}</td>${tutti ? `<td>${esc(x.c >= 0 ? nomeC(x.c) : x.cant)}</td>` : ''}<td>${esc(x.desc)}</td><td>${esc(x.cat)}</td><td>${eur(x.imp)}</td></tr>`).join('') +
+      `<tr><td colspan="${tutti ? 4 : 3}"><b>Totale nel periodo</b></td><td><b>${eur(costiP)}</b></td></tr></table></div></div>` : '<div class="vb-note">Nessun costo di cantiere registrato nel periodo (si inseriscono dalla pagina Costi)</div>';
+
+    const statoC = x => x.stato === 'DaFatturare' ? 'da fatturare' : x.pag ? 'pagata' : 'non pagata';
+    const badge = x => x.stato === 'DaFatturare' ? '<span class="vb-badge est">da fatturare</span>' : x.pag ? '<span class="vb-badge ok">pagata</span>' : '<span class="vb-badge wait">non pagata</span>';
+    $('vb-sc-compensi').innerHTML = cp.length ? `<div class="table-container" style="margin-bottom:0"><div class="table-inner"><table><tr>${tutti ? '<th>Cantiere</th>' : ''}<th>Da</th><th>Importo</th><th>Stato</th></tr>` +
+      cp.map(x => `<tr>${tutti ? `<td>${esc(nomeC(x.c))}</td>` : ''}<td>${esc(x.fonte)}</td><td>${eur(x.stato === 'DaFatturare' ? x.impS : x.impF)}</td><td>${badge(x)}</td></tr>`).join('') + '</table></div></div>' : '<div class="vb-note">Nessun compenso collegato</div>';
+
+    const rapp = rp.map(r => ({ d: r.d, c: r.c, chi: 'Tecnico: ' + r.t, ore: r.ore })).concat(rcs.map(r => ({ d: r.d, c: r.c, chi: 'Cantiere' + (r.compilatore ? ': ' + r.compilatore : ''), ore: r.ore }))).sort((a, b) => b.d.localeCompare(a.d));
+    $('vb-sc-rapp').innerHTML = rapp.length ? `<div class="table-container" style="margin-bottom:0"><div class="table-inner" style="max-height:340px"><table><tr><th>Data</th>${tutti ? '<th>Cantiere</th>' : ''}<th>Rapportino</th><th>Ore</th></tr>` +
+      rapp.map(r => `<tr><td>${dIT(r.d)}</td>${tutti ? `<td>${esc(nomeC(r.c))}</td>` : ''}<td>${esc(r.chi)}</td><td>${r.ore}</td></tr>`).join('') + '</table></div></div>' : '<div class="vb-note">Nessun rapportino nel periodo</div>';
+
+    const pre = x => tutti ? `${nomeC(x.c)} · ` : '';
+    const ev = [...rp.map(r => ({ d: r.d, t: `${pre(r)}${r.t} — ${r.ore}h` })), ...rcs.map(r => ({ d: r.d, t: `${pre(r)}Rapportino cantiere — ${r.ore}h ditte` })),
+      ...cs.map(x => ({ d: x.d, t: `${pre(x)}Costo ${x.desc} (${x.cat}): ${eur(x.imp)}` })),
+      ...cp.filter(x => x.stato === 'Fatturato' && x.df).map(x => ({ d: x.df, t: `${pre(x)}Fattura emessa a ${x.fonte}: ${eur(x.impF)}` })),
+      ...cp.filter(x => x.stato === 'Fatturato' && x.pag).map(x => ({ d: x.pag, t: `${pre(x)}Fattura incassata da ${x.fonte}: ${eur(x.impF)}` }))].sort((a, b) => b.d.localeCompare(a.d));
+    $('vb-sc-tl').innerHTML = ev.slice(0, 80).map(e => `<div>${dIT(e.d)} · ${esc(e.t)}</div>`).join('') || '<div class="vb-note">Nessun evento</div>';
+
+    EXPORTS.riepilogo = { titolo: 'Riepilogo cantiere', sub: sottotitolo, cols: ['Voce', 'Valore'], righe: [['Ore tecnici', m.ore + ' h'], ['Fatturato', eur(m.fatt)], ['Da fatturare', eur(m.daFatt)], ['Incassato', eur(m.inc)], ['Da incassare', eur(m.fatt - m.inc)], ['Costi di cantiere (periodo)', eur(costiP)], ['Margine (periodo)', eur(m.fatt - costiP)], ['Incidenza €/ora lorda', oreT ? eur(ehT) + '/h' : '—'], ['€/ora dopo costi cantiere', oreT ? eur(ehN) + '/h' : '—'], ['Quota costi generali (totale)', eur(qG)], ['Margine netto (totale)', eur(fattAll - costiT - qG)], ['€/ora dopo costi generali', oreT ? eur(ehG) + '/h' : '—'], ['Ore subappaltatori', oreSub + ' h']].concat(tutti ? [['Ore Sopralluoghi/Preventivi (periodo)', oreSPper + ' h']] : []).concat(tutti ? [['Media ore per cantiere', (m.ore / nC).toFixed(1) + ' h'], ['Fatturato medio per cantiere', eur(m.fatt / nC)]] : []) };
+    EXPORTS.tecnici = { titolo: 'Ore per tecnico', sub: sottotitolo, cols: ['Tecnico', 'Ore'], righe: Object.entries(per).map(([t, o]) => [t, o]) };
+    EXPORTS.costi = { titolo: 'Costi di cantiere', sub: sottotitolo, cols: ['Data', 'Cantiere', 'Descrizione', 'Categoria', 'Importo'], righe: cs.map(x => [dIT(x.d), x.c >= 0 ? nomeC(x.c) : x.cant, x.desc, x.cat, eur(x.imp)]).concat(cs.length ? [['', '', '', 'TOTALE', eur(costiP)]] : []) };
+    EXPORTS.sub = { titolo: 'Ore subappaltatori', sub: sottotitolo, cols: ['Cantiere', 'Ditta', 'Giornate', 'Ore'], righe: righeD.map(r => [nomeC(r.c), r.ditta, r.gg.size, r.ore]) };
+    EXPORTS.compensi = { titolo: 'Fatture e compensi collegati', sub: sottotitolo, cols: ['Cantiere', 'Da', 'Importo', 'Stato'], righe: cp.map(x => [nomeC(x.c), x.fonte, eur(x.stato === 'DaFatturare' ? x.impS : x.impF), statoC(x)]) };
+    EXPORTS.rapportini = { titolo: 'Rapportini', sub: sottotitolo, cols: ['Data', 'Cantiere', 'Rapportino', 'Ore'], righe: rapp.map(r => [dIT(r.d), nomeC(r.c), r.chi, r.ore]) };
+    EXPORTS.cronologia = { titolo: 'Cronologia', sub: sottotitolo, cols: ['Data', 'Evento'], righe: ev.map(e => [dIT(e.d), e.t]) };
+  }
+  function renderIncidenza() {
+    const idx = selezioneIdx(), tutti = idx.length > 1;
+    const righe = idx.map(i => { const f = datiCantiere(i), m = metriche(f.rp, f.cp); return { i, n: nomeC(i), ...m, eh: ehTotale([i]), oreTot: oreTotTec([i]), costi: costiTotIdx([i]), qG: quotaGenTot([i]), ehN: ehNetta([i]), ehG: ehDopoGen([i]) }; }).filter(r => !tutti || r.ore || r.fatt || r.oreTot || r.costi);
+    const nC = Math.max(1, righe.length);
+    const T = righe.reduce((a, r) => { ['ore', 'fatt', 'inc', 'costi', 'qG'].forEach(k => a[k] += r[k]); return a; }, { ore: 0, fatt: 0, inc: 0, costi: 0, qG: 0 });
+    T.eh = ehTotale(idx); T.ehN = ehNetta(idx); T.ehG = ehDopoGen(idx);
+    const oreSPt = oreSP(null, null), oreTutte = oreTecTotali();
+    const costiSP = somma(DS.costiC.filter(x => isSP(x.cant)), x => x.imp);   // costi imputati a Sopralluoghi/Preventivi
+    const ehC = oreTutte ? T.fatt / oreTutte : 0, ehCN = oreTutte ? (T.fatt - T.costi - costiSP) / oreTutte : 0, ehCG = oreTutte ? (T.fatt - T.costi - costiSP - T.qG) / oreTutte : 0;
+    const vista = tutti ? 'Tutti i cantieri' : nomeC(idx[0]);
+    const sottotitolo = `${vista} · incidenza calcolata sul totale ore e fatturato`;
+    $('vb-in-cards').innerHTML = `
+      <div class="vb-card"><div class="l">Incidenza €/ora tecnici${tutti ? ' (media tutti i cantieri)' : ''}</div><div class="v" style="color:var(--accent2)">${T.eh ? eur(T.eh) : '—'}/h</div><div class="s">${tutti ? `media per cantiere: ${eur(T.fatt / nC)} fatturato, ${(T.ore / nC).toFixed(1)} h` : 'su questo cantiere'}</div></div>
+      <div class="vb-card"><div class="l">€/ora dopo COSTI CANTIERE${tutti ? ' (media)' : ''}</div><div class="v" style="color:var(--accent2)">${T.ore ? eur(T.ehN) : '—'}/h</div><div class="s">(fatturato − costi cantiere) ÷ ore</div></div>
+      <div class="vb-card"><div class="l">€/ora dopo COSTI GENERALI${tutti ? ' (media)' : ''}</div><div class="v" style="color:var(--accent2)">${T.ore ? eur(T.ehG) : '—'}/h</div><div class="s">dopo anche la quota dei costi generali${nonAllocato() ? ` · non allocati ${eur(nonAllocato())}` : ''}</div></div>
+      <div class="vb-card"><div class="l">Margine NETTO</div><div class="v" style="color:var(--${T.fatt - T.costi - T.qG >= 0 ? 'green' : 'red'})">${eur(T.fatt - T.costi - T.qG)}</div><div class="s">costi cantiere ${eur(T.costi)} · generali ${eur(T.qG)}</div></div>
+      ${tutti ? `<div class="vb-card"><div class="l">Ore Sopralluoghi/Preventivi</div><div class="v">${oreSPt} h</div><div class="s">${oreTutte ? (oreSPt / oreTutte * 100).toFixed(0) : 0}% di tutte le ore dei tecnici (${oreTutte} h) · nessun ricavo diretto · costi imputati ${eur(costiSP)}</div></div>
+      <div class="vb-card"><div class="l">€/ora COMPLESSIVA (sopralluoghi inclusi)</div><div class="v" style="color:var(--accent2)">${oreTutte ? eur(ehC) : '—'}/h</div><div class="s">fatturato ÷ tutte le ore dei tecnici · dopo costi cantiere ${eur(ehCN)}/h · dopo costi generali ${eur(ehCG)}/h</div></div>` : ''}
+      <div class="vb-card"><div class="l">Ore tecnici${tutti ? ' totali' : ''}</div><div class="v">${T.ore} h</div><div class="s">${tutti ? `media ${(T.ore / nC).toFixed(1)} h a cantiere` : ''}</div></div>
+      <div class="vb-card"><div class="l">Fatturato</div><div class="v" style="color:var(--green)">${eur(T.fatt)}</div></div>
+      <div class="vb-card"><div class="l">Incassato</div><div class="v" style="color:var(--green)">${eur(T.inc)}</div><div class="s" style="color:var(--red)">da incassare: ${eur(T.fatt - T.inc)}</div></div>`;
+    const mx = Math.max(1, ...righe.map(r => r.eh));
+    const riga = (r, st) => `<tr${st ? ` style="${st}"` : ''}><td>${r.n}</td><td>${r.ore}</td><td>${eur(r.fatt)}</td><td style="color:var(--red)">${eur(r.costi)}</td><td style="color:var(--red)">${eur(r.qG)}</td><td style="color:var(--${r.fatt - r.costi - r.qG >= 0 ? 'green' : 'red'})">${eur(r.fatt - r.costi - r.qG)}</td><td><span style="color:var(--accent2)">${r.eh ? eur(r.eh) + '/h' : '—'}</span><div class="vb-bar"><i style="width:${(r.eh || 0) / mx * 100}%"></i></div></td><td><span style="color:var(--accent2)">${r.ore ? eur(r.ehN) + '/h' : '—'}</span></td><td><span style="color:var(--accent2)">${r.ore ? eur(r.ehG) + '/h' : '—'}</span></td></tr>`;
+    let tab = righe.map(r => riga({ ...r, n: esc(r.n) })).join('');
+    if (tutti && righe.length > 1) tab += riga({ n: '<b>TOTALE</b>', ...T }, 'border-top:2px solid var(--accent)') + riga({ n: '<b>MEDIA per cantiere</b>', ore: +(T.ore / nC).toFixed(1), fatt: T.fatt / nC, inc: T.inc / nC, costi: T.costi / nC, qG: T.qG / nC, eh: T.eh, ehN: T.ehN, ehG: T.ehG });
+    if (tutti && righe.length > 1) tab += `<tr><td>Sopralluoghi/Preventivi</td><td>${oreSPt}</td><td>—</td><td style="color:var(--red)">${eur(costiSP)}</td><td>—</td><td style="color:var(--red)">${eur(-costiSP)}</td><td colspan="3" style="color:var(--text3)">nessun ricavo diretto</td></tr>` +
+      `<tr style="border-top:2px solid var(--accent)"><td><b>TOTALE con sopralluoghi</b></td><td>${oreTutte}</td><td>${eur(T.fatt)}</td><td style="color:var(--red)">${eur(T.costi + costiSP)}</td><td style="color:var(--red)">${eur(T.qG)}</td><td>${eur(T.fatt - T.costi - costiSP - T.qG)}</td><td><span style="color:var(--accent2)">${oreTutte ? eur(ehC) + '/h' : '—'}</span></td><td><span style="color:var(--accent2)">${oreTutte ? eur(ehCN) + '/h' : '—'}</span></td><td><span style="color:var(--accent2)">${oreTutte ? eur(ehCG) + '/h' : '—'}</span></td></tr>`;
+    $('vb-in-tab').innerHTML = `<div class="table-container" style="margin-bottom:0"><div class="table-inner"><table><tr><th>Cantiere</th><th>Ore tecnici</th><th>Fatturato</th><th>Costi cantiere</th><th>Quota generali</th><th>Margine netto</th><th>€/ora lorda</th><th>€/ora dopo c. cantiere</th><th>€/ora dopo c. generali</th></tr>${tab || '<tr><td colspan="9">Nessun dato</td></tr>'}</table></div></div>`;
+    EXPORTS.riepilogo_inc = { titolo: 'Incidenza €/ora — riepilogo', sub: sottotitolo, cols: ['Voce', 'Valore'], righe: [['€/ora lorda', T.eh ? eur(T.eh) + '/h' : '—'], ['€/ora dopo costi cantiere', T.ore ? eur(T.ehN) + '/h' : '—'], ['€/ora dopo costi generali', T.ore ? eur(T.ehG) + '/h' : '—'], ['Ore tecnici', T.ore + ' h'], ['Fatturato', eur(T.fatt)], ['Costi di cantiere', eur(T.costi)], ['Quota costi generali', eur(T.qG)], ['Margine netto', eur(T.fatt - T.costi - T.qG)], ['Incassato', eur(T.inc)], ['Da incassare', eur(T.fatt - T.inc)]].concat(tutti ? [['Ore Sopralluoghi/Preventivi', oreSPt + ' h'], ['€/ora complessiva (sopralluoghi inclusi)', oreTutte ? eur(ehC) + '/h' : '—'], ['€/ora complessiva dopo costi cantiere', oreTutte ? eur(ehCN) + '/h' : '—'], ['€/ora complessiva dopo costi generali', oreTutte ? eur(ehCG) + '/h' : '—']] : []) };
+    EXPORTS.incidenza = { titolo: 'Incidenza €/ora per cantiere', sub: sottotitolo, cols: ['Cantiere', 'Ore tecnici', 'Fatturato', 'Costi cantiere', 'Quota generali', 'Margine netto', '€/ora lorda', '€/ora dopo c. cantiere', '€/ora dopo c. generali'],
+      righe: righe.map(r => [r.n, r.ore, eur(r.fatt), eur(r.costi), eur(r.qG), eur(r.fatt - r.costi - r.qG), r.eh ? eur(r.eh) + '/h' : '—', r.ore ? eur(r.ehN) + '/h' : '—', r.ore ? eur(r.ehG) + '/h' : '—']).concat(tutti && righe.length > 1 ? [['TOTALE', T.ore, eur(T.fatt), eur(T.costi), eur(T.qG), eur(T.fatt - T.costi - T.qG), eur(T.eh) + '/h', eur(T.ehN) + '/h', eur(T.ehG) + '/h'], ['MEDIA per cantiere', (T.ore / nC).toFixed(1), eur(T.fatt / nC), eur(T.costi / nC), eur(T.qG / nC), eur((T.fatt - T.costi - T.qG) / nC), eur(T.eh) + '/h', eur(T.ehN) + '/h', eur(T.ehG) + '/h']].concat([['Sopralluoghi/Preventivi', oreSPt, '', eur(costiSP), '', eur(-costiSP), '', '', ''], ['TOTALE con sopralluoghi', oreTutte, eur(T.fatt), eur(T.costi + costiSP), eur(T.qG), eur(T.fatt - T.costi - costiSP - T.qG), oreTutte ? eur(ehC) + '/h' : '—', oreTutte ? eur(ehCN) + '/h' : '—', oreTutte ? eur(ehCG) + '/h' : '—']]) : []) };
+  }
+  function aggiorna() { if (!DS.caricato) return; renderScheda(); renderIncidenza(); }
+
+  // ---------------- export su OneDrive (stessa regola del Resoconto: nessun download locale) ----------------
+  function costruisciBlob(sezioni, formato) {
+    if (formato === 'xlsx') {
+      const wb = XLSX.utils.book_new();
+      sezioni.forEach(e => {
+        const ws = XLSX.utils.aoa_to_sheet([[e.titolo], [e.sub], [], e.cols].concat(e.righe));
+        ws['!cols'] = e.cols.map(() => ({ wch: 26 }));
+        XLSX.utils.book_append_sheet(wb, ws, e.titolo.slice(0, 28).replace(/[\\/?*\[\]:]/g, ' '));
+      });
+      return new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: sezioni.some(e => e.cols.length > 4) ? 'landscape' : 'portrait' });
+    let y = 16;
+    sezioni.forEach((e, i) => {
+      if (i > 0 && y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 16; }
+      doc.setFontSize(14); doc.setTextColor(20); doc.text(e.titolo, 14, y);
+      doc.setFontSize(9); doc.setTextColor(110); doc.text(e.sub, 14, y + 6);
+      doc.autoTable({ startY: y + 10, head: [e.cols], body: e.righe.map(r => r.map(c => String(c))), styles: { fontSize: 9 }, headStyles: { fillColor: [200, 169, 110], textColor: 20 } });
+      y = doc.lastAutoTable.finalY + 14;
+    });
+    return doc.output('blob');
+  }
+  async function salvaExport(titolo, sezioni, formato) {
+    const filename = `${titolo.replace(/[^\wàèéìòù]+/gi, '_')}_${oggiISO()}.${formato === 'xlsx' ? 'xlsx' : 'pdf'}`;
+    showToast('☁️ Salvataggio su OneDrive...');
+    try {
+      await caricaCopiaRapportino('Estrazione', codiceCartella(), filename, costruisciBlob(sezioni, formato));
+      showToast(`✅ ${formato === 'xlsx' ? 'Excel' : 'PDF'} salvato su OneDrive (05_RAPPORTINI CANTIERI/Estrazione/${codiceCartella()})`);
+    } catch (err) {
+      console.error('Export su OneDrive fallito:', err);
+      showToast('⚠️ Salvataggio OneDrive fallito', true);
+      alert(`Il salvataggio ${formato === 'xlsx' ? "dell'Excel" : 'del PDF'} su OneDrive NON è riuscito:\n\n` + err.message);
+    }
+  }
+  function esporta(k, formato) {
+    const e = EXPORTS[k]; if (!e) { showToast('⚠️ Niente da esportare', true); return; }
+    return salvaExport(e.titolo, [e], formato);
+  }
+  function esportaTutto(vista, formato) {
+    const chiavi = vista === 'scheda' ? ['riepilogo', 'tecnici', 'sub', 'costi', 'compensi', 'rapportini', 'cronologia'] : ['riepilogo_inc', 'incidenza'];
+    const sezioni = chiavi.map(k => EXPORTS[k]).filter(Boolean);
+    if (!sezioni.length) { showToast('⚠️ Niente da esportare', true); return; }
+    return salvaExport(vista === 'scheda' ? 'Scheda_cantiere_completa' : 'Incidenza_euro_ora_completa', sezioni, formato);
+  }
+
+
+  async function mostraVista(v) {
+    $('vb-v-scheda').style.display = v === 'scheda' ? '' : 'none';
+    $('vb-v-incidenza').style.display = v === 'incidenza' ? '' : 'none';
+    if (!DS.caricato) {
+      $('vb-stato').textContent = '⏳ Caricamento rapportini da SharePoint…';
+      await caricaDati();
+      if (DS.errore) { $('vb-stato').textContent = '❌ ' + DS.errore; return; }
+    }
+    if (!$('vb-sel').options.length) { popolaSelettore(); impostaDateDefault(); }
+    $('vb-stato').textContent = '';
+    aggiorna();
+  }
+  $('vb-sel').addEventListener('change', () => { impostaDateDefault(); aggiorna(); });
+  $('vb-dal').addEventListener('change', aggiorna); $('vb-al').addEventListener('change', aggiorna);
+  // dopo ogni modifica ai costi la pagina richiama questa funzione
+  function ricalcola() { if (!DS.caricato) return; const sel = $('vb-sel').value; popolaSelettore(); if (sel && [...$('vb-sel').options].some(o => o.value === sel)) $('vb-sel').value = sel; aggiorna(); }
+  return { setDati, caricaDati, pronto: () => DS.caricato, oreCant: i => oreTotTec([i]), orePrev: i => orePrevIdx([i]),
+    preventivi, asgOk: () => DS.asgOk, salvaAsg, ripristinaAsg, oreSopr: () => oreSP(null, null), oreTutte: () => oreTecTotali(), mostraVista, esporta, esportaTutto, aggiorna, ricalcola };
+})();
+
+// ============================================================
+// INIT — login silenzioso; se serve, compare il pannello "Connetti" (popup solo al click)
+// ============================================================
+$('cs-data').value = oggiISO();
+$('gn-dal').value = new Date().getFullYear() + '-01-01';
+$('gn-al').value = new Date().getFullYear() + '-12-31';
+popolaSelettori();
+(async () => { initMsal(); await caricaTutto(); })();
+
+</script>
+</body>
+</html>
