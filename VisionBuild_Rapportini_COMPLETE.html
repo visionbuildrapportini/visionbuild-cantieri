@@ -743,15 +743,9 @@ tr:hover {
         </div>
         <div id="mc-tecnici"></div>
         <div id="mc-cantieri"></div>
-        <h4 class="vb-h4">🏖️ Segna un periodo come "non lavorato" (ferie, chiusure…)</h4>
-        <div class="filter-row" style="margin-bottom:8px;">
-          <div class="form-group"><label class="form-label">Rapportino</label><select id="mp-tipo" class="form-select" onchange="VB.popolaSoggettiPeriodo()"><option value="Tecnici">Tecnici</option><option value="Cantieri">Cantieri</option></select></div>
-          <div class="form-group"><label class="form-label">Per</label><select id="mp-sogg" class="form-select"></select></div>
-          <div class="form-group"><label class="form-label">Dal</label><input type="date" id="mp-dal" class="form-input"></div>
-          <div class="form-group"><label class="form-label">Al</label><input type="date" id="mp-al" class="form-input"></div>
-          <div class="form-group"><label class="form-label">Motivo</label><input type="text" id="mp-motivo" class="form-input" placeholder="es. Ferie"></div>
-        </div>
-        <button type="button" class="btn-secondary" onclick="VB.segnaPeriodo()">✔ Segna come non lavorato</button>
+        <h3 class="vb-h3" style="margin-top:18px">Possibili doppioni</h3>
+        <div class="vb-note">Stesso tecnico con più rapportini nello stesso giorno, o stesso cantiere con più rapportini nello stesso giorno (nel periodo scelto sopra). Può essere voluto (es. due compilatori): controlla e, se è un errore, elimina la riga in SharePoint.</div>
+        <div id="mc-doppioni"></div>
       </div>
     </div>
   </section>
@@ -3153,21 +3147,6 @@ const VB = (function () {
   }
   function ignoraGiorno(i, g) { const r = MC[i]; creaEsclusioni(r.tipo, r.n, [g], 'Rapportino non compilato'); }
   function ignoraRiga(i) { const r = MC[i]; if (confirm(`Segnare ${r.giorni.length} giorni come "rapportino non compilato" per ${r.n}? Non verranno più segnalati come mancanti.`)) creaEsclusioni(r.tipo, r.n, r.giorni, 'Rapportino non compilato'); }
-  function popolaSoggettiPeriodo() {
-    const t = $('mp-tipo').value, sel = $('mp-sogg');
-    const nomi = t === 'Tecnici' ? tecniciNoti() : DS.anag.filter(attivo).map((c, k) => nomeC(DS.anag.indexOf(c)));
-    sel.innerHTML = '<option value="TUTTI">Tutti</option>' + nomi.map(n => `<option>${esc(n)}</option>`).join('');
-  }
-  async function segnaPeriodo() {
-    const dal = $('mp-dal').value, al = $('mp-al').value;
-    if (!dal || !al || dal > al) { alert('Controlla le date del periodo'); return; }
-    const t = $('mp-tipo').value, sogg = $('mp-sogg').value, motivo = $('mp-motivo').value.trim() || 'Non lavorato';
-    const giorni = giorniLavorativi(dal, al, false);
-    const soggetti = sogg === 'TUTTI' ? ['TUTTI'] : [sogg];
-    if (!confirm(`Segnare ${giorni.length} giorni lavorativi (${dIT(dal)} – ${dIT(al)}) come "${motivo}" per ${sogg === 'TUTTI' ? 'tutti' : sogg}?`)) return;
-    for (const so of soggetti) await creaEsclusioni(t, so, giorni, motivo);
-  }
-
   const DS = { escl: [], esclOk: false, esclErr: null, rc: [], rt: [], comp: [], anag: [], caricato: false, inCorso: null, errore: null };
   function caricaDati(forza) {
     if (DS.inCorso) return DS.inCorso;
@@ -3241,7 +3220,6 @@ const VB = (function () {
     const dal = $('mc-dal').value, al = $('mc-al').value, we = $('mc-we').value === '1';
     if (!dal || !al || dal > al) { $('mc-tecnici').innerHTML = '<div class="vb-note">Controlla le date</div>'; $('mc-cantieri').innerHTML = ''; return; }
     MC = [];
-    if ($('mp-tipo') && !$('mp-sogg').options.length) popolaSoggettiPeriodo();
     const fmt = g => { const d = new Date(g + 'T12:00:00'); return `${GG[d.getDay()]} ${g.slice(8)}/${g.slice(5, 7)}`; };
     const blocco = (titolo, righe, intest) => {
       const tot = somma(righe, r => r.giorni.length);
@@ -3252,6 +3230,20 @@ const VB = (function () {
     };
     $('mc-tecnici').innerHTML = blocco('👷 Rapportino Tecnici', mancantiTecnici(dal, al, we), 'Tecnico');
     $('mc-cantieri').innerHTML = blocco('🏗️ Rapportino Cantiere', mancantiCantieri(dal, al, we), 'Cantiere');
+    renderDoppioni(dal, al);
+  }
+  function renderDoppioni(dal, al) {
+    const el = $('mc-doppioni'); if (!el) return;
+    const raggruppa = (arr, chiave) => { const m = new Map(); arr.forEach(r => { const k = chiave(r); if (!k) return; (m.get(k) || m.set(k, []).get(k)).push(r); }); return [...m.values()].filter(g => g.length > 1); };
+    const inP = r => r.d >= dal && r.d <= al;
+    const dt = raggruppa(DS.rt.filter(inP), r => r.d + '|' + r.t.toLowerCase());
+    const dc = raggruppa(DS.rc.filter(inP), r => { const i = idxCantiere(r.cantiere); return r.d + '|' + (i >= 0 ? 'i' + i : String(r.cantiere || '').toLowerCase().trim()); });
+    dt.sort((a, b) => b[0].d.localeCompare(a[0].d)); dc.sort((a, b) => b[0].d.localeCompare(a[0].d));
+    const tab = (titolo, gruppi, riga) => `<h4 class="vb-h4">${titolo} — ${gruppi.length ? `<span style="color:var(--red)">${gruppi.length} possibili doppioni</span>` : '<span style="color:var(--green)">nessun doppione</span>'}</h4>` +
+      (gruppi.length ? `<div class="table-container" style="margin-bottom:12px"><div class="table-inner"><table><tr><th>Data</th><th>Chi / cantiere</th><th>Dettaglio dei rapportini trovati</th><th>N.</th></tr>${gruppi.map(riga).join('')}</table></div></div>` : '');
+    el.innerHTML =
+      tab('👷 Rapportino Tecnici', dt, g => `<tr><td>${dIT(g[0].d)}</td><td>${esc(g[0].t)}</td><td>${g.map(r => `${r.ore} h (${esc(r.cant.map(c => c.nome + ' ' + c.ore + 'h').join(', ') || '—')})`).join('<br>')}</td><td>${g.length}</td></tr>`) +
+      tab('🏗️ Rapportino Cantiere', dc, g => `<tr><td>${dIT(g[0].d)}</td><td>${esc(g[0].cantiere)}</td><td>${g.map(r => `${r.ore} h${r.compilatore ? ' · ' + esc(r.compilatore) : ''}${r.ditteNomi ? ' · ' + esc(String(r.ditteNomi).slice(0, 80)) : ''}`).join('<br>')}</td><td>${g.length}</td></tr>`);
   }
   async function caricaHome(forza) {
     const box = $('home-riepilogo-cards'); if (!box) return;
@@ -3285,7 +3277,7 @@ const VB = (function () {
   }
 
   // ===================================== SCHEDA CANTIERE / INCIDENZA =====================================
-  return { compila, ignoraGiorno, ignoraRiga, segnaPeriodo, popolaSoggettiPeriodo, caricaHome, vai, applicaHash };
+  return { compila, ignoraGiorno, ignoraRiga, caricaHome, vai, applicaHash };
 })();
 
 
